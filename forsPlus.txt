@@ -1251,62 +1251,6 @@ PlusMenu.ZIndex += 25
 for i,v in PlusMenu.SettingsContainer:GetChildren() do if not (v:IsA("UIAspectRatioConstraint") or v.Name == "Contents") then v:Destroy() end end
 for i,v in PlusMenu.SettingsContainer.Contents:QueryDescendants("Frame,ImageLabel") do v:Destroy() end
 
--- Make SidePlusButton Draggable --
-local dragging = false
-local dragInput, dragStart, startPos
-
-SidePlusButton.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true
-        dragStart = input.Position
-        startPos = SidePlusButton.Position
-
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                dragging = false
-            end
-        end)
-    end
-end)
-
-SidePlusButton.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-        dragInput = input
-    end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-    if input == dragInput and dragging then
-        local delta = input.Position - dragStart
-        SidePlusButton.Position = UDim2.new(
-            startPos.X.Scale,
-            startPos.X.Offset + delta.X,
-            startPos.Y.Scale,
-            startPos.Y.Offset + delta.Y
-        )
-    end
-end)
-
--- Fix UI Menu Opening / Toggle Event --
-local function TogglePlusMenu()
-    PlusMenu.Visible = not PlusMenu.Visible
-    SetButtonState(PlusMenu.Visible)
-end
-
-if NewUIVersion then
-    PlusButton.Activated:Connect(TogglePlusMenu)
-else
-    local InteractiveBtn = SidePlusButton:FindFirstChildOfClass("TextButton") or SidePlusButton:FindFirstChildOfClass("ImageButton") or SidePlusButton
-    InteractiveBtn.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            -- Prevents trigger if the user was dragging the button
-            if not dragging then
-                TogglePlusMenu()
-            end
-        end
-    end)
-end
-
 -- Functions --
 
 function ColoredPrint(Text, Icon, Color)
@@ -1452,7 +1396,7 @@ function PlaySound(SoundName,Settings,KeepPlaying)
     end
 end
 
-function SetButtonState(Active)
+local function SetButtonState(Active)
     task.spawn(function()
         local u4 = {}
         local BGData = {
@@ -1511,7 +1455,7 @@ function SetButtonState(Active)
             }
         }
         u4.Line = LineData
-        local TextLabelUI = PlusButton and PlusButton:FindFirstChild("Text")
+        local TextLabelUI = PlusButton:FindFirstChild("Text")
         for _, Child in TextLabelUI and TextLabelUI:GetChildren() or {} do
             if Child:IsA("TextLabel") then
                 TweenService:Create(Child, TweenInfo.new(0.25), {
@@ -1525,7 +1469,7 @@ function SetButtonState(Active)
         end
         local v28 = Active and "Active" or "Inactive"
         for v29, v30 in u4 do
-            local v31 = PlusButton and PlusButton:FindFirstChild(v29)
+            local v31 = PlusButton:FindFirstChild(v29)
             if v31 then
                 TweenService:Create(v31, TweenInfo.new(0.25), v30[v28]):Play()
             end
@@ -2310,7 +2254,7 @@ end
 if not (game.GameId == 6331902150 or game.GameId == 7464167604) then
     FeatureLoadout["Unofficial"] = {
           ["TabAttributes"] = {
-            ["DisplayTitle"] = '<font color="rgb(255,166,0)">⚠️</font>' .. RichTextGradientColor(" SOME FEATURES MAY NOT WORK HERE ",{Color3.fromRGB(255, 166, 0), Color3.fromRGB(243, 227, 0)}) .. '<font color="rgb(243, 227, 0)">⚠️</font>',
+            ["DisplayTitle"] = '<font color="rgb(255,166,0)">⚠</font>' .. RichTextGradientColor(" SOME FEATURES MAY NOT WORK HERE ",{Color3.fromRGB(255, 166, 0), Color3.fromRGB(243, 227, 0)}) .. '<font color="rgb(243, 227, 0)">⚠</font>',
             ["LayoutOrder"] = -1
         }
     }
@@ -2321,7 +2265,7 @@ FeatureLoadout["EnviromentFunctions"]["TabAttributes"]["DisplayTitle"] = string.
     "Script Made by %s | %s    ",
     RichTextGradientColor("Naiko Scripts",{Color3.fromRGB(0, 255, 128),Color3.fromRGB(0, 102, 255)}),
     RichTextGradientColor("V"..Version,{Color3.fromRGB(87, 160, 255),Color3.fromRGB(0, 132, 255)})
-)
+) -- Tryna edit something here?? i can see that... you ain taking no credit you know..
 
 FeatureLoadout["Visuals"]["DisableNoliNPC"]["DisplayTitle"] = string.format("Disable %s NPC", RichTextGradientColor("Noli's",{Color3.fromRGB(130, 72, 255), Color3.fromRGB(77, 0, 185)}))
 FeatureLoadout["Visuals"]["Disable007n7NPC"]["DisplayTitle"] = string.format("Disable %s NPC", RichTextGradientColor("007n7's",{Color3.fromRGB(117, 161, 255), Color3.fromRGB(13, 70, 175)}))
@@ -2358,6 +2302,9 @@ task.spawn(function()
     end)
     local Success,Result
     if tostring(Err):find("cyclic") or s then
+        if s then
+            --ColoredPrint("Require does not function completely correctly some features could bug out!","warn", Color3.new(1,0.25,0))
+        end 
         if Device == "PC" then
             Success, Result = pcall(function()
                 local Module = require(ReplicatedStorage:WaitForChild("Systems",4):WaitForChild("Character",4):WaitForChild("Game",4):WaitForChild("Sprinting",4))
@@ -2426,5 +2373,2115 @@ task.spawn(function()
         if AnimationPreset["ExtraData"]["Options"]:gsub("|Default Roblox","") == "Original" then
             AnimationPreset["ExtraData"]["Requirement"] = true
         end
+        --[[if UtilModule then
+            local AllPlayersSideUI = MainUI:FindFirstChild(LocalPlayer.Name,true) and MainUI:FindFirstChild(LocalPlayer.Name,true).Parent
+            local function HandlePlayerForUI(Player)
+                if AllPlayersSideUI:FindFirstChild(Player.Name) then
+                    local PlayersUI = AllPlayersSideUI:FindFirstChild(Player.Name)
+                    local PlayersData = Player:FindFirstChild("PlayerData")
+                    local Settings = PlayersData and PlayersData:FindFirstChild("Settings")
+                    local Pron = Settings and Settings:FindFirstChild("Pronouns",true)
+                    if Pron and Pron.Value == "discord.gg/Fs47aNrdGF" then
+                        local NoChat = PlayersUI:FindFirstChild("NoChat")
+                        if NoChat then
+                            NoChat.Visible = false
+                        end
+                        local ClonedUI = ReplicatedStorage:FindFirstChild("NoChat",true) and ReplicatedStorage:FindFirstChild("NoChat",true):Clone()
+                        if ClonedUI then
+                            ClonedUI.Name = "FSUser"
+                            ClonedUI.Image = "rbxassetid://118860705115878"
+                            ClonedUI.Parent = PlayersUI
+                            ClonedUI.Visible = true
+                            ClonedUI.AnchorPoint = Vector2.new(0.5,0.425)
+                            ClonedUI.MouseEnter:Connect(function()
+                                UtilModule:CreateTooltip("This is a Forsaken Plus user.")
+                            end)
+                            ClonedUI.MouseLeave:Connect(function()
+                                UtilModule:CreateTooltip("")
+                            end)
+                            if ClonedUI:FindFirstChildOfClass("UIAspectRatioConstraint") then
+                                ClonedUI:FindFirstChildOfClass("UIAspectRatioConstraint").AspectRatio = 1
+                            end
+                        end
+                    end
+                end
+            end
+            if AllPlayersSideUI then
+                for i,v in Players:GetPlayers() do
+                    HandlePlayerForUI(v)
+                end
+                Players.PlayerAdded:Connect(function(v)
+                    task.delay(1.5,function() HandlePlayerForUI(v) end)
+                end)
+            else
+                ColoredPrint("Failed to find PlayerList UI","error")
+            end
+        end]]
+    else
+        AnimationPreset["ExtraData"]["Requirement"] = true
+    end
+    if not NoliConfig then
+        FeatureLoadout["Features"]["NoliControl"]["ExtraData"]["Requirement"] = true
     end
 end)
+
+
+
+local SupportedOverrides = {"idle","walk","run"}
+
+local function StartSprintDetection()
+    repeat task.wait(0.1) until MainModule["__sprintedEvent"]
+    MainModule["__sprintedEvent"].Event:Connect(function()
+        if GetValue("AnimationChanger") ~= "Original" then
+            UpdateAnim(LocalHumanoid)
+        end
+    end)
+    MainModule["__sprintedEvent"].Destroying:Once(function()
+        StartSprintDetection()
+    end)
+end
+if MainModule then
+    task.spawn(StartSprintDetection)
+end
+
+local function ActionOnCharacter(Character)
+    task.spawn(function()
+        SetButtonState(false)
+        LocalCharacter = Character
+        LocalHumanoid = LocalCharacter and (LocalCharacter:FindFirstChildOfClass("Humanoid") or LocalCharacter:WaitForChild("Humanoid",2)) or nil
+        LocalHead = LocalCharacter and (LocalCharacter:FindFirstChild("Head") or LocalCharacter:WaitForChild("Head",2)) or nil
+        LocalRoot = LocalCharacter and ((LocalHumanoid and LocalHumanoid.RootPart) or LocalCharacter:FindFirstChild("HumanoidRootPart") or LocalCharacter:WaitForChild("HumanoidRootPart",2)) or nil
+        SpeedMultipliers = LocalCharacter and (Character:FindFirstChild("SpeedMultipliers") or Character:WaitForChild("SpeedMultipliers", 5)) or nil
+        OverriddenAnimations = {}
+        local Animator = LocalHumanoid and LocalHumanoid:FindFirstChildOfClass("Animator")
+        LastAnimOriginalUsed = Animator:GetPlayingAnimationTracks()[1]
+        Animator.AnimationPlayed:Connect(function(Track)
+            if CanPlayOverrideAnim(LocalCharacter) and MainModule then
+                local Override = Track.Animation:GetAttribute("Overriden")
+                if Override then 
+                    --return
+                end
+                LastAnimOriginalUsed = not Override and Track or LastAnimOriginalUsed
+                local AnimType,CharName = GetAnimationType(tonumber(Track.Animation.AnimationId:match("%d+")))
+                if not Override then
+                    for i,v in SupportedOverrides do
+                        if AnimType and AnimType:lower():find(v:lower()) then
+                            Track:Stop(0)
+                        elseif not AnimType and Track.Looped then
+                            Track:Stop(0)
+                        end
+                    end
+                end
+                local FoundAction = false
+                for i,v in Animator:GetPlayingAnimationTracks() do
+                    task.spawn(function()
+                        local AnimType,Char,Name = GetAnimationType(v.Animation.AnimationId)
+                        local IsSupported = false
+                        for i,v in SupportedOverrides do
+                            if AnimType and AnimType:lower():find(v:lower()) then
+                                IsSupported = true
+                            end
+                        end
+                        if v.IsPlaying and not IsSupported and not v:GetAttribute("Ignored") then
+                            FoundAction = v
+                        end
+                    end)
+                end
+                if FoundAction and Override then
+                    Track:Stop(0.2)
+                    task.wait(not FoundAction.Looped and FoundAction.Length * 0.95 or 0)
+                    if FoundAction.Looped then
+                        FoundAction.Stopped:Wait()
+                    end
+                    FoundAction:SetAttribute("Ignored",true)
+                    task.delay(0.2,function()
+                        FoundAction:SetAttribute("Ignored",nil)
+                    end)
+                    UpdateAnim(LocalHumanoid)
+                end
+            end
+        end)
+        LocalRoot.Touched:Connect(function(Hit)
+            if Hit and Hit.Parent and (Hit:FindFirstAncestor("KillerDoors") or Hit:FindFirstAncestor("Killer Doors")) then
+                if GetValue("DisableKillerWalls") and Hit.CanQuery and (Hit:GetAttribute("WalkedThrough") ~= false or Hit:GetAttribute("WalkedThrough") == nil) then
+                    local KillerDoorsFolder = GameMap and (GameMap:FindFirstChild("KillerDoors",true) or GameMap:FindFirstChild("Killer Doors",true))
+                    if not KillerDoorsFolder then return end
+                    local Params = OverlapParams.new()
+                    Params.FilterType = Enum.RaycastFilterType.Include
+                    Params.BruteForceAllSlow = true
+                    Params.FilterDescendantsInstances = {KillerDoorsFolder}
+                    local Gates = workspace:GetPartBoundsInRadius(Hit.Position, 15,Params)
+                    for i,v in Gates do
+                        if v:IsA("BasePart") then
+                            v:SetAttribute("WalkedThrough","Ignore")
+                        end
+                    end
+                    Hit:SetAttribute("WalkedThrough","Ignore")
+                    task.delay(0.3,function()
+                        if Hit and Hit.Parent then
+                            for i,v in Gates do
+                                if v:IsA("BasePart") then
+                                    v:SetAttribute("WalkedThrough",true)
+                                end
+                            end
+                            Hit:SetAttribute("WalkedThrough",true)
+                            task.wait()
+                            HandleDisableKillerWalls(GetValue("DisableKillerWalls"),true)
+                        end
+                    end)
+                    task.delay(4.5,function()
+                        if Hit and Hit.Parent then
+                            for i,v in Gates do
+                                if v:IsA("BasePart") then
+                                    v:SetAttribute("WalkedThrough",nil)
+                                end
+                            end
+                            Hit:SetAttribute("WalkedThrough",nil)
+                            task.wait()
+                            HandleDisableKillerWalls(GetValue("DisableKillerWalls"),true)
+                        end
+                    end)
+                end
+            end
+        end)
+        local MoreThanZero = 0
+        LocalHumanoid:GetPropertyChangedSignal("MoveDirection"):Connect(function()
+            if GetValue("AnimationChanger") ~= "Original" and MoreThanZero ~= (LocalHumanoid.MoveDirection.Magnitude == 0) then
+                MoreThanZero = (LocalHumanoid.MoveDirection.Magnitude == 0)
+                UpdateAnim(LocalHumanoid)
+            end
+        end)
+        task.delay(0.05,UpdateAnim,LocalHumanoid)
+        if SpeedMultipliers ~= nil and typeof(SpeedMultipliers) == "Instance" then
+            SpeedMultipliers.ChildAdded:Connect(function(Child)
+                if not Child:IsA("NumberValue") or Child.Name == "Sprinting" then
+                    return
+                end
+                Check(Child)
+                Child:GetPropertyChangedSignal("Value"):Connect(function()
+                    Check(Child)
+                end)
+            end)
+        end
+        task.delay(1,GoUnder)
+        if not LocalRoot then
+            repeat task.wait() until LocalRoot
+        end
+        task.delay(0.25,HandleAllowJumping,GetValue("EnableJumping"))
+        LocalRoot:GetPropertyChangedSignal("Anchored"):Connect(function()
+            if not LocalRoot.Anchored then
+                task.delay(0.75,GoUnder)
+            end
+        end)
+        LocalRoot.ChildAdded:Connect(function(Child)
+            if Child:IsA("LinearVelocity") and LocalHumanoid then
+                local OriginalVelocity = Child.LineDirection
+                local OriginalVelocityMag = Child.LineDirection.Magnitude
+                for i,v in SpeedMultipliers:GetChildren() do
+                    if v.Name == "HinderedMovement" and GetValue("ControllableDash") and v.Value == 0 then
+                        v.Value = 0.005
+                    end
+                end
+                local function UpdateVelocity()
+                    if GetValue("ControllableDash") and (LocalCharacter.Name:gsub("0","O"):lower():find("coolkid")) and LocalHumanoid.MoveDirection ~= Vector3.zero then
+                        Child.LineDirection = LocalHumanoid.MoveDirection * OriginalVelocityMag
+                    elseif GetValue("ControllableDash") and (LocalCharacter.Name:gsub("0","O"):lower():find("coolkid")) and workspace.CurrentCamera then
+                        local CameraDirection = Vector3.new(workspace.CurrentCamera.CFrame.LookVector.X, 0, workspace.CurrentCamera.CFrame.LookVector.Z)
+                        Child.LineDirection = CameraDirection.Unit * OriginalVelocityMag
+                        if Child.LineVelocity > 0 then
+                            LocalRoot.CFrame = LocalRoot.CFrame:Lerp(CFrame.lookAt(LocalRoot.Position, LocalRoot.Position + CameraDirection),0.05)
+                        end
+                    else
+                        Child.LineDirection = OriginalVelocity
+                    end
+                end
+                UpdateVelocity()
+                local Connection1;Connection1 = LocalHumanoid:GetPropertyChangedSignal("MoveDirection"):Connect(UpdateVelocity)
+                local Connection2;Connection2 = workspace.CurrentCamera:GetPropertyChangedSignal("CFrame"):Connect(UpdateVelocity)
+                Child.Destroying:Once(function()
+                    if Connection1 then
+                        Connection1:Disconnect()
+                        Connection1 = nil
+                    end
+                    if Connection2 then
+                        Connection2:Disconnect()
+                        Connection2 = nil
+                    end
+                end)
+            end
+        end)
+        task.wait(0.05)
+        local TempUI = PlayerGui:FindFirstChild("TemporaryUI") or PlayerGui:WaitForChild("TemporaryUI", 5)
+        if TempUI then
+            task.spawn(function()
+                local AmountUI = (TempUI:FindFirstChild("PlayerInfo") or TempUI:WaitForChild("PlayerInfo")) and TempUI.PlayerInfo:FindFirstChild("Bars") and TempUI.PlayerInfo.Bars:FindFirstChild("Stamina") and TempUI.PlayerInfo.Bars.Stamina:FindFirstChild("Amount")
+                if AmountUI and MainModule then
+                    local OriginalAmountUI = AmountUI
+                    local InfiniteStaminaElement = OriginalAmountUI:Clone()
+                    local CenterStaminaCounter = TempUI:FindFirstChild("CenterStaminaCounter")
+                    local CenterDrainBar = TempUI:FindFirstChild("Drain")
+                    if CenterStaminaCounter then
+                        CenterStaminaCounter:SetAttribute("WasVisible", CenterStaminaCounter.Visible)
+                        CenterStaminaCounter.Visible = GetValue("StaminaPreset") ~= "Infinite" and CenterStaminaCounter:GetAttribute("WasVisible")
+                    end
+                    if CenterDrainBar then
+                        CenterDrainBar:SetAttribute("WasVisible", CenterDrainBar.Visible)
+                        CenterDrainBar.Visible = GetValue("StaminaPreset") ~= "Infinite" and CenterDrainBar:GetAttribute("WasVisible")
+                    end
+                    InfiniteStaminaElement.Name = "InfiniteAmount"
+                    InfiniteStaminaElement.Text = "∞"
+                    InfiniteStaminaElement.Parent = OriginalAmountUI.Parent
+                    InfiniteStaminaElement.Visible = GetValue("StaminaPreset") == "Infinite"
+                    InfiniteStaminaElement.Size = UDim2.new(0.225,0,0.7,14)
+                    OriginalAmountUI.Visible = GetValue("StaminaPreset") ~= "Infinite"
+                    local InfViewConnection;InfViewConnection = FeatureLoadout["Features"]["StaminaPreset"]["Instance"]:GetPropertyChangedSignal("Value"):Connect(function()
+                        if InfiniteStaminaElement and OriginalAmountUI then
+                            InfiniteStaminaElement.Visible = GetValue("StaminaPreset") == "Infinite"
+                            OriginalAmountUI.Visible = GetValue("StaminaPreset") ~= "Infinite"
+                            if CenterStaminaCounter then
+                                CenterStaminaCounter.Visible = GetValue("StaminaPreset") ~= "Infinite" and CenterStaminaCounter:GetAttribute("WasVisible")
+                            end
+                            if CenterDrainBar then
+                                CenterDrainBar.Visible = GetValue("StaminaPreset") ~= "Infinite" and CenterDrainBar:GetAttribute("WasVisible")
+                            end
+                        else
+                            InfViewConnection:Disconnect()
+                        end
+                    end)
+                    TempUI.Destroying:Once(function()
+                        InfViewConnection:Disconnect()
+                    end)
+                end
+            end)
+            for i,v in TempUI:QueryDescendants("#redFlash,#injuredVignette") do
+                v.Visible = not GetValue("HideInjury")
+            end
+        end
+    end)
+end
+
+Lighting.ChildAdded:Connect(function(Child)
+    if Child.Name == "HealthDesaturation" then
+        Child.Enabled = not GetValue("HideInjury")
+    end
+    if Child.Name == "BlindnessBlur" and Child:IsA("BlurEffect") then
+        Child.Enabled = not GetValue("DisableBlindness")
+    end
+end)
+if Lighting:FindFirstChild("HealthDesaturation") then
+    Lighting.HealthDesaturation.Enabled = not GetValue("HideInjury")
+end
+if Lighting:FindFirstChild("BlindnessBlur") then
+    Lighting:FindFirstChild("BlindnessBlur").Enabled = not GetValue("DisableBlindness")
+end
+
+if TempUI then
+    TempUI.ChildAdded:Connect(function(UIElement)
+        if UIElement.Name:upper() == "QTE" and UIElement:FindFirstChildOfClass("UIAspectRatioConstraint") then
+            while UIElement and UIElement.Visible do
+                local Cooldown = GetValue("EscapeCooldown")
+                task.wait(Random.new():NextNumber(Cooldown - 0.2 * Cooldown,Cooldown + 0.2 * Cooldown))
+                if GetValue("AutoEscape") then
+                    for i,v in KillersFolder:GetChildren() do
+                        if v.Name:lower() == "nosferatu" then
+                            local Player = Players:GetPlayerFromCharacter(v)
+                            if Player then
+                                Network:FindFirstChildOfClass("RemoteEvent"):FireServer(Player.Name.."NosHookQTE",{true})
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end)
+else
+    FeatureLoadout["Automation"]["AutoEscape"]["ExtraData"]["Requirement"] = true
+end
+
+if not MainModule then
+    ColoredPrint("Failed to load required modules, some features may be hidden.\n use a different executor that supports 'require' and 'getgc'", "warn", Color3.new(1,0.25,0))
+    FeatureLoadout["EnviromentFunctions"]["getgc"]["DefaultInstanceValue"] = false
+end
+
+if FeatureLoadout["EnviromentFunctions"]["getgc"]["DefaultInstanceValue"] then
+    task.spawn(function()
+        if game.GameId ~= 6331902150 then
+            task.wait(0.5)
+            if IsRequireSupported then
+                for i,v in getgc(true) do
+                    if type(v) == type({}) then
+                        if not rawget(v,"Idle") or not rawget(v,"Run") then if i%250 == 0 then task.wait() end continue end
+                        local num = 0
+                        for i,v in v do
+                            num += 1
+                        end
+                        if num > 3 then
+                            AllAnimations[HttpService:GenerateGUID(false):sub(1,5)] = v
+                        end
+                    end
+                end
+            end
+        end
+    end)
+end
+
+
+--local readfile = GetFunction(readfile, read_file)
+--local writefile = GetFunction(writefile, write_file)
+--local isfolder = GetFunction(isfolder, is_folder)
+--local isfile = GetFunction(isfile, is_file)
+--local makefolder = GetFunction(makefolder, make_folder)
+local UserType = 1
+if not (readfile and writefile and isfolder and isfile) then
+    FeatureLoadout["EnviromentFunctions"]["files"]["DefaultInstanceValue"] = false
+else
+    if not isfolder("NaikoScript") and not isfolder("NaikoScript/ForsakenPlus") then
+        makefolder("NaikoScript")
+        makefolder("NaikoScript/ForsakenPlus")
+        UserType = 1
+    elseif isfolder("NaikoScript") and not isfolder("NaikoScript/ForsakenPlus") then
+        UserType = 2
+        makefolder("NaikoScript/ForsakenPlus")
+    elseif isfolder("NaikoScript") and isfolder("NaikoScript/ForsakenPlus") then
+        UserType = 3
+    end
+    DefaultData("Data.txt", "{}")
+    DefaultData("AccountType.txt","{}")
+    makefolder("NaikoScript/ForsakenPlus/Plugins")
+end
+
+if UserType < 3 then
+    task.spawn(function()
+        Arrow.Visible = true
+        local MovingTween = TweenService:Create(Arrow, TweenInfo.new(0.6, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {Position = UDim2.fromScale(1.4, 0.5)})
+        MovingTween:Play()
+        SidePlusButton.Button.MouseEnter:Wait()
+        local DisappearTween = TweenService:Create(Arrow, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = UDim2.fromScale(1.6, 0.5),Size = UDim2.fromScale(0.2, 0.2),ImageTransparency = 1})
+        MovingTween:Pause()
+        MovingTween:Cancel()
+        DisappearTween:Play()
+        DisappearTween.Completed:Wait()
+        Arrow.Visible = false
+    end)
+end
+
+local TableData = HttpService:JSONDecode(ReturnData("Data.txt", true))
+
+local function HandleUIFeatures(TabName,TabContents)
+    local Folder = Instance.new("Folder")
+    Folder.Name = TabName
+    Folder.Parent = PlusFolderSettings
+    for Attribute, Value in TabContents["TabAttributes"] do
+        Folder:SetAttribute(Attribute, Value)
+    end
+    for SettingName, SettingData in TabContents do
+        task.spawn(function()
+            if SettingName == "TabAttributes" then
+                return
+            end
+            local NewInstance = Instance.new(SettingData.InstanceType)
+            NewInstance.Name = SettingName
+            NewInstance.Value = SettingData.DefaultInstanceValue
+            if SettingData["Savable"] and FeatureLoadout["EnviromentFunctions"]["files"]["DefaultInstanceValue"] then
+                if TableData[SettingName] ~= nil and NewInstance:GetAttribute("Requirement") ~= true then
+                    NewInstance.Value = TableData[SettingName]
+                end
+                NewInstance:GetPropertyChangedSignal("Value"):Connect(function()
+                    if NewInstance:GetAttribute("Requirement") == true or not SettingData["Savable"] then
+                        return
+                    end
+                    local TableData2 = HttpService:JSONDecode(ReturnData("Data.txt", true))
+                    TableData2[SettingName] = SettingData.DefaultInstanceValue == NewInstance.Value and nil or NewInstance.Value
+                    if FeatureLoadout["EnviromentFunctions"]["files"]["DefaultInstanceValue"] then
+                        ChangeData("Data.txt",HttpService:JSONEncode(TableData2),true)
+                    end
+                end)
+            elseif not FeatureLoadout["EnviromentFunctions"]["files"]["DefaultInstanceValue"] and SettingData["Savable"] and not WarnedAboutFilesCompatability then
+                WarnedAboutFilesCompatability = true
+                ColoredPrint("Failed to load a savable feature.\nIf this bothers you then you should use a different executor that supports 'writefile' and 'readfile'", "info", Color3.new(1,0.25,0))
+            end
+            SettingData.DisplayDescription = SettingData.DisplayDescription:gsub("%(NO FUNCTIONALITY%)", RichTextGradientColor("(NO FUNCTIONALITY)",{Color3.fromRGB(255, 83, 53), Color3.fromRGB(255, 123, 0),Color3.fromRGB(255, 83, 53)}))
+            NewInstance:SetAttribute("DisplayDescription",SettingData.DisplayDescription)
+            NewInstance:SetAttribute("DisplayTitle",SettingData.DisplayTitle)
+            NewInstance:SetAttribute("LayoutOrder",SettingData.LayoutOrder)
+            FeatureLoadout[TabName][SettingName]["Instance"] = NewInstance
+            for ExtraDataIndex, ExtraDataValue in SettingData.ExtraData do
+                NewInstance:SetAttribute(ExtraDataIndex, ExtraDataValue)
+            end
+            NewInstance.Parent = Folder
+        end)
+    end
+    return Folder
+end
+
+for TabName, TabContents in FeatureLoadout do
+    task.spawn(HandleUIFeatures,TabName,TabContents)
+end
+
+local hookmetamethod = GetFunction(hookmetamethod, hook_metamethod)
+if not hookmetamethod then
+    FeatureLoadout["EnviromentFunctions"]["hookmetamethod"]["DefaultInstanceValue"] = false
+else
+    if GetValue("OfficialGame") then
+        task.spawn(function()
+            export type DesyncHook = {DesyncNumber:number,BufferCorruption:buffer}
+            export type CorruptArguments = {Number:number,Table1:table,NilObject:any,Table2:table}
+            local HookSuccess, HookResult = pcall(function()
+                local UnreliableRemoteEvent = Network:WaitForChild("UnreliableRemoteEvent")
+                local DummyFunction = function(Dummy)
+                    return Dummy
+                end
+                local newcclosure = GetFunction(newcclosure, new_cclosure) or DummyFunction
+                local checkcaller = GetFunction(checkcaller, check_caller) or DummyFunction
+                local FeatureInstance = GetValue("Invincible",true)
+                if not FeatureInstance.Value then
+                    FeatureInstance:GetPropertyChangedSignal("Value"):Wait()
+                end
+                local TypeEnum = {"invalidnumber"}
+                local __namecall = true
+                __namecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...): DesyncHook
+                    if not checkcaller() and IsUnderground and getnamecallmethod() == "FireServer" and self == UnreliableRemoteEvent and FeatureInstance and FeatureInstance.Value then
+                        local Args: CorruptArguments = {...}
+                        if Args[1] == 1 then
+                            return function() return nil end
+                        end
+                    end
+                    return __namecall(self, ...)
+                end))
+                return __namecall
+            end)
+            if not HookSuccess or not HookResult then
+                FeatureLoadout["EnviromentFunctions"]["hookmetamethod"]["DefaultInstanceValue"] = false
+            end
+        end)
+    end
+end
+
+if GetValue("OfficialGame") then
+    task.spawn(function()
+        local FrequencyData = HttpService:JSONDecode(ReturnData("AccountType.txt", true))
+        FrequencyData["Normal"] = FrequencyData["Normal"] or 0
+        FrequencyData["New"] = FrequencyData["New"] or 0
+        ChangeData("AccountType.txt",HttpService:JSONEncode(FrequencyData),true)
+        if GetValue("PrivateServer") then return end
+        for i,v in Players:GetPlayers() do if v:IsFriendsWithAsync(LocalPlayer.UserId) then return end end
+        if UserType < 3 then
+            task.wait(26)
+            if PlayerGui:FindFirstChild("LoadingGui") then return end
+            if game.PlaceId ~= 83645629621104 then
+                FrequencyData["Normal"] = 3
+            else
+                FrequencyData["New"] = 5
+            end
+        else
+            task.wait(18)
+            if PlayerGui:FindFirstChild("LoadingGui") then return end
+            if game.PlaceId ~= 83645629621104 then
+                FrequencyData["Normal"] += 2
+                FrequencyData["New"] -= 1
+            else
+                FrequencyData["New"] += 2
+                FrequencyData["Normal"] -= 1
+            end
+        end
+        ChangeData("AccountType.txt",HttpService:JSONEncode(FrequencyData),true)
+    end)
+end
+
+task.spawn(function()
+    local AzureQTE = KillerAssets and KillerAssets:FindFirstChild("Azure") and KillerAssets:FindFirstChild("Azure"):FindFirstChild("cl_ConstructQTE",true)
+    if IsRequireSupported and AzureQTE then
+        local RequiredModule = require(AzureQTE)
+        task.delay(1,function()
+            local origin;origin = hookfunction(RequiredModule.new,function(...)
+                local QTEAzure = origin(...)
+                task.delay(0.05,function()
+                    if typeof(QTEAzure) == "table" and QTEAzure.AddProgress then
+                        if GetValue("AutoDisarm") then
+                            QTEAzure:AddProgress(100)
+                        else
+                            CurrentQTEAzure = QTEAzure
+                        end
+                    else
+                        warn("Failed Doing QTE For Azure")
+                    end
+                end)
+                return QTEAzure 
+            end)
+        end)
+    end
+end)
+
+task.spawn(function()
+    for i,v in Players:GetPlayers() do
+        if v ~= LocalPlayer then
+            HandlePrivacySettings(v)
+            HandleCheckForMod(v)
+        end
+    end
+end)
+Players.PlayerAdded:Connect(function(Player)
+    HandleCheckForMod(Player)
+    task.delay(2,HandlePrivacySettings,Player)
+end)
+
+Players.PlayerAdded:Connect(UpdatePlayerCrashDrop)
+Players.PlayerRemoving:Connect(UpdatePlayerCrashDrop)
+LocalPlayer.CharacterAdded:Connect(ActionOnCharacter)
+ActionOnCharacter(LocalCharacter or LocalPlayer.Character)
+task.delay(0.5,UpdatePlayerCrashDrop)
+
+InGame.ChildAdded:Connect(function(Child)
+    if Child.Name == "Map" then
+        GameMap = Child
+        task.delay(2,HandleDisableKillerWalls,GetValue("DisableKillerWalls"))
+    end
+end)
+
+TeleportSound = Instance.new("Sound")
+TeleportSound.Name = "TeleportSound"
+TeleportSound.SoundId = "rbxassetid://130359426691991"
+TeleportSound.Parent = CoreGui
+TeleportSound.Volume = 0.001
+TeleportSound:Play()
+
+
+local BlockableAttacks = {"slash","stab","attack","punch","behead","swing","golemslash"}
+
+-- Extra Slasher skins whose animation names are not one of the generic
+-- attack names above.
+local BlockableKillerNames = {
+    ["vanity"] = true,
+    ["vanity slasher"] = true,
+    ["mystic"] = true,
+    ["mystic slasher"] = true,
+    ["combat initiation"] = true,
+    ["combat initiation slasher"] = true,
+}
+
+local BlockableAnimationIds = {
+    -- Vanity / Combat Initiation Slasher attack
+    ["126830014841198"] = true,
+}
+
+local function IsBlockableAttack(AnimType, KillerName, AnimationId, ModelName)
+    -- Standard attack animation names
+    if type(AnimType) == "string" then
+        local Name = AnimType:lower()
+        if table.find(BlockableAttacks, Name) then
+            return true
+        end
+    end
+
+    -- Specific Vanity / Combat Initiation animation IDs
+    if type(AnimationId) == "string" then
+        local Id = AnimationId:match("%d+")
+        if Id and BlockableAnimationIds[Id] then
+            return true
+        end
+    end
+
+    -- Check both the animation's character name and the actual killer model name
+    for _, Name in ipairs({KillerName, ModelName}) do
+        if type(Name) == "string" then
+            Name = Name:lower()
+            if BlockableKillerNames[Name]
+                or Name:find("vanity", 1, true)
+                or Name:find("mystic", 1, true)
+                or Name:find("combat initiation", 1, true) then
+                return true
+            end
+        end
+    end
+
+    return false
+end
+
+local CustomHitboxes = {
+    ["golemslash"] = {
+        Size = Vector3.new(6, 2, 7),
+        Offset = CFrame.new(0,0,-5.5)
+    },
+}
+local FireSignal = GetFunction(firesignal,FireSignal)
+local SelfParams = OverlapParams.new()
+SelfParams.MaxParts = 1
+SelfParams.FilterType = Enum.RaycastFilterType.Include
+local UseActorAbility = Network and Network:FindFirstChildOfClass("RemoteEvent")
+local ShowHitboxesSetting = PlayerData and PlayerData:FindFirstChild("Settings") and PlayerData.Settings:FindFirstChild("ShowHitboxes",true)
+local function HandleKiller(Killer)
+    local Humanoid = Killer:FindFirstChildOfClass("Humanoid") or Killer:WaitForChild("Humanoid")
+    local QueryHitbox = Killer:FindFirstChild("QueryHitbox") or Killer:WaitForChild("QueryHitbox")
+    local Animator = Humanoid:FindFirstChildOfClass("Animator")
+    if Animator then
+        Animator.AnimationPlayed:Connect(function(Track)
+            if GetValue("AutoBlock") and Players:GetPlayerFromCharacter(Killer) then
+                local AnimationId = Track.Animation and Track.Animation.AnimationId
+                local AnimType,KillerName = GetAnimationType(AnimationId)
+                if IsBlockableAttack(AnimType, KillerName, AnimationId, Killer.Name) and LocalCharacter and LocalCharacter:FindFirstChild("QueryHitbox") and LocalCharacter.Parent == SurvivorsFolder and MainUI:FindFirstChild("AbilityContainer") and MainUI:FindFirstChild("AbilityContainer"):FindFirstChild("Block") then
+                    local AnimTypeName = type(AnimType) == "string" and AnimType:lower() or ""
+                    local KillerModelName = type(Killer.Name) == "string" and Killer.Name:lower() or ""
+                    local CustomHitbox = CustomHitboxes[AnimTypeName] or CustomHitboxes[KillerModelName]
+                    for i = 1,12 do
+                        SelfParams.FilterDescendantsInstances = {LocalCharacter:FindFirstChild("QueryHitbox")}
+                        local Part = Instance.new("Part")
+                        Part.Name = "KillerDetectHitbox"
+                        Part.Color = BrickColor.new("Really black").Color
+                        local BaseSize = CustomHitbox and CustomHitbox["Size"] or Vector3.new(5.2, 6, 5.65)
+                        local BaseOffset = CustomHitbox and CustomHitbox["Offset"] or CFrame.new(0,0,-3.5)
+                        Part.Size = BaseSize + Vector3.new(2, 0, 2.5)
+                        Part.CFrame = QueryHitbox.CFrame * BaseOffset * CFrame.new(0, 0, -1.25)
+                        Part.CanCollide = false
+                        Part.Anchored = true
+                        Part.CastShadow = false
+                        Part.Material = Enum.Material.ForceField
+                        Part.Transparency = ShowHitboxesSetting.Value and 0.1 or 1
+                        Part.Parent = Hitboxes
+                        Debris:AddItem(Part,0.4)
+                        local Hitbox = workspace:GetPartsInPart(Part,SelfParams)
+                        if #Hitbox > 0 then
+                            if FireSignal and MainUI:FindFirstChild("AbilityContainer"):FindFirstChild("Block") then
+                                FireSignal(MainUI.AbilityContainer.Block.MouseButton1Click)
+                                break
+                            end
+                            if GetValue("OfficialGame") then
+                                UseActorAbility:FireServer("UseActorAbility",{"Block"})
+                            else
+                                UseActorAbility:FireServer("UseActorAbility","Block")
+                                UseActorAbility:FireServer("UseActorAbility",{"Block"})
+                            end
+                            break
+                        end
+                        task.wait(0.02)
+                    end
+                end
+            end
+        end)
+    end
+end
+
+if KillersFolder then
+    KillersFolder.ChildAdded:Connect(HandleKiller)
+    for i,Killer in KillersFolder:GetChildren() do HandleKiller(Killer) end
+end
+
+
+local fireproximitypromptFunction = GetFunction(fireproximityprompt, fire_proximity_prompt)
+local fireprompt = fireproximitypromptFunction and function(ProximityPrompt)
+    return ProximityPrompt and fireproximitypromptFunction(ProximityPrompt)
+end or function(ProximityPrompt)
+    if ProximityPrompt then
+        ProximityPrompt:InputHoldBegin();ProximityPrompt:InputHoldEnd()
+    end
+end
+
+local RNG = Random.new()
+ThreadManager:Start("FeatureHandler", function()
+    local ComputerInstance = GetValue("Computer",true)
+    if ComputerInstance then
+        ComputerInstance.Value = UserInputService.KeyboardEnabled
+    end
+    task.spawn(function()
+        if LocalRoot and not IsFixingGenerator and (GetValue("AutoGeneratorPuzzle")) and GameMap then
+            for i,Object in GameMap:QueryDescendants("Model#Generator:has(#Main)") do
+                if LocalRoot and LocalRoot.Anchored ~= true and (Object:FindFirstChild("Main").Position - LocalRoot.Position).Magnitude < 6.7 then
+                    task.spawn(function()
+                        IsFixingGenerator = true
+                        local Remotes = Object:FindFirstChild("Remotes")
+                        local Progress = Remotes and Object:FindFirstChild("Progress")
+                        local RemoteEvent = Progress and Remotes:FindFirstChildOfClass("RemoteEvent")
+                        if RemoteEvent and SpeedMultipliers:FindFirstChild("FixingGenerator") then
+                            while true do
+                                if not IsFixingGenerator or not LocalCharacter or not SpeedMultipliers or not SpeedMultipliers:FindFirstChild("FixingGenerator") or not (GetValue("AutoGeneratorPuzzle")) then
+                                    break
+                                end
+                                local IsNear = IsPlayersNear(32)
+                                local GenCD = (not IsNear and GetValue("SpeedUpCooldown") and GetValue("GeneratorCooldown") > 2 and (GetValue("GeneratorCooldown",true):GetAttribute("MinValue"))) or GetValue("GeneratorCooldown")
+                                task.wait(RNG:NextNumber(GenCD - 0.1 * GenCD,GenCD + 0.1 * GenCD))
+                                if not IsFixingGenerator or not LocalCharacter or not SpeedMultipliers or not SpeedMultipliers:FindFirstChild("FixingGenerator") or not (GetValue("AutoGeneratorPuzzle")) then
+                                    break
+                                end
+                                RemoteEvent:FireServer()
+                                PlaySound("puzzleDone", {["Parent"] = Object:FindFirstChild("Main")})
+                            end
+                        end
+                        IsFixingGenerator = false
+                    end)
+                    break
+                end
+            end
+        end
+    end)
+
+    local StaminaPreset = GetValue("StaminaPreset")
+    if StaminaPreset ~= "Original" and MainModule and MainModule.MaxStamina then
+        if StaminaPreset == "Infinite" then
+            rawset(MainModule, "Stamina", MainModule.MaxStamina)
+        else
+            local MaxStamina = MainModule.MaxStamina
+            if MainModule.Stamina < MaxStamina * 0.8 then
+                rawset(MainModule, "Stamina", math.min(MainModule.Stamina + MaxStamina * (StaminaPreset == "Semi-Realistic" and 0.005 or 0.0025), MaxStamina))
+            end
+        end
+    end
+    for i,v in PlayersFolder:QueryDescendants("#Killers > Instance,#Survivors > Instance") do
+        task.spawn(function()
+            local Player = v ~= LocalPlayer.Character and Players:GetPlayerFromCharacter(v)
+            if Player and v:FindFirstChildOfClass("Humanoid") and v:FindFirstChildOfClass("Humanoid").Health > 0 and MainUI.Enabled == true then
+                local FolderName = v.Parent.Name
+                local FeatureValue, ColorValue, TargetRoot = GetValue(FolderName.."ESP"), ColorPresets[GetValue(FolderName.."Color")], v:FindFirstChild("HumanoidRootPart")
+                CreateDynamicHighlight(FeatureValue, v, TargetRoot, {MaxDistance = 100,MinDistance = 10,Color = ColorValue })
+                CreateText(FeatureValue, v, TargetRoot, {MinDistance = 25,Text = Player.Name,Color = ColorValue})
+            else
+                CreateDynamicHighlight(false, v)
+                CreateText(false, v)
+            end
+        end)
+    end
+    if InGame and GameMap then
+        task.spawn(function()
+            local Tools = InGame:QueryDescendants("#Map > Tool")
+            local DroppedTools = InGame.Parent:QueryDescendants("Folder > Tool")
+            for i,v in table.move(Tools,1,#Tools,#DroppedTools+1,DroppedTools) do
+                local FeatureValue, ColorValue, TargetRoot = GetValue("ItemsESP"), ColorPresets[GetValue("ItemsColor")], v:FindFirstChildWhichIsA("BasePart")
+                CreateDynamicHighlight(FeatureValue, v, TargetRoot, {MaxDistance = 100,MinDistance = 12,Color = ColorValue})
+                CreateText(FeatureValue, v, TargetRoot, {MinDistance = 25,Text = v.Name, Color = ColorValue})
+                if v:IsA("Tool") and not LocalCharacter:FindFirstChild(v.Name) and not LocalPlayer:FindFirstChildOfClass("Backpack"):FindFirstChild(v.Name) and not v:GetAttribute("JustDropped") and GetValue("AutoPickup") then
+                    local Param = OverlapParams.new()
+                    Param.FilterType = Enum.RaycastFilterType.Include
+                    Param.FilterDescendantsInstances = {v}
+                    local Result = workspace:GetPartBoundsInRadius(LocalRoot.Position, 4.5, Param)
+                    if LocalRoot and #Result > 0 then
+                        fireprompt(v:FindFirstChildWhichIsA("ProximityPrompt",true))
+                    end
+                end
+            end
+        end)
+        for i,v in GameMap:QueryDescendants("Model#Generator:has(#Main)") do
+            task.spawn(function()
+                if (GetValue("GeneratorsCheck")) == true and v:FindFirstChild("Progress") and v:FindFirstChild("Progress").Value >= 100 then
+                    CreateDynamicHighlight(false, v)
+                    CreateText(false, v)
+                elseif v:FindFirstChild("Progress") then
+                    local FeatureValue, ColorValue, TargetRoot = GetValue("GeneratorsESP"), ColorPresets[GetValue("GeneratorsColor")], v:FindFirstChild("Main") or v:WaitForChild("Main")
+                    CreateDynamicHighlight(FeatureValue, v, TargetRoot, { MaxDistance = 100,MinDistance = 12,Color = ColorValue})
+                    CreateText(FeatureValue, v, TargetRoot, { MinDistance = 25,Text = v.Name,Color = ColorValue})
+                end
+            end)
+        end
+    end
+end,0.1)
+
+local LoadUI = Instance.new("TextButton")
+local Folder = Instance.new("Folder")
+local Dot1 = Instance.new("TextLabel")
+local Dot2 = Instance.new("TextLabel")
+local Dot3 = Instance.new("TextLabel")
+local TextButton = Instance.new("TextLabel")
+
+LoadUI.Name = "load"
+LoadUI.BackgroundColor3 = Color3.new(0, 0, 0)
+LoadUI.BackgroundTransparency = 0.4
+LoadUI.BorderSizePixel = 0
+LoadUI.Active = true
+LoadUI.Interactable = true
+LoadUI.AutoButtonColor = false
+LoadUI.Size = UDim2.new(1, 0, 1, 0)
+LoadUI.ZIndex = 7
+LoadUI.Text = ""
+
+Folder.Parent = LoadUI
+
+Dot1.Name = "1"
+Dot1.Parent = Folder
+Dot1.AnchorPoint = Vector2.new(0.5, 0)
+Dot1.BackgroundColor3 = Color3.new(1, 1, 1)
+Dot1.BackgroundTransparency = 1
+Dot1.BorderSizePixel = 0
+Dot1.Position = UDim2.new(0.5, 0, -0.05, 0)
+Dot1.Size = UDim2.new(0.1, 0, 1, 0)
+Dot1.ZIndex = 4
+Dot1.Font = Enum.Font.Cartoon
+Dot1.Text = "."
+Dot1.TextColor3 = Color3.new(1, 1, 1)
+Dot1.TextSize = 50
+Dot1.TextScaled = true
+Dot1.TextStrokeTransparency = 0.9
+
+Dot2.Name = "2"
+Dot2.Parent = Folder
+Dot2.AnchorPoint = Vector2.new(0.5, 0)
+Dot2.BackgroundColor3 = Color3.new(1, 1, 1)
+Dot2.BackgroundTransparency = 1
+Dot2.BorderSizePixel = 0
+Dot2.Position = UDim2.new(0.5, 0, -0.05, 0)
+Dot2.Size = UDim2.new(0.1, 0, 1, 0)
+Dot2.ZIndex = 4
+Dot2.Font = Enum.Font.Cartoon
+Dot2.Text = "."
+Dot2.TextColor3 = Color3.new(1, 1, 1)
+Dot2.TextSize = 50
+Dot2.TextScaled = true
+Dot2.TextStrokeTransparency = 0.9
+
+Dot3.Name = "3"
+Dot3.Parent = Folder
+Dot3.AnchorPoint = Vector2.new(0.5, 0)
+Dot3.BackgroundColor3 = Color3.new(1, 1, 1)
+Dot3.BackgroundTransparency = 1
+Dot3.BorderSizePixel = 0
+Dot3.Position = UDim2.new(0.5, 0, -0.05, 0)
+Dot3.Size = UDim2.new(0.1, 0, 1, 0)
+Dot3.ZIndex = 4
+Dot3.Font = Enum.Font.Cartoon
+Dot3.Text = "."
+Dot3.TextColor3 = Color3.new(1, 1, 1)
+Dot3.TextSize = 50
+Dot3.TextScaled = true
+Dot3.TextStrokeTransparency = 0.9
+
+TextButton.Name = "TextButton"
+TextButton.Parent = LoadUI
+TextButton.BackgroundColor3 = Color3.new(1, 1, 1)
+TextButton.BackgroundTransparency = 1
+TextButton.BorderSizePixel = 0
+TextButton.AnchorPoint = Vector2.new(0.5, 0.5)
+TextButton.Position = UDim2.new(0.5, 0, 0.6, 0)
+TextButton.Selectable = false
+TextButton.Size = UDim2.new(0.4, 0, 0.4, 0)
+TextButton.ZIndex = 7
+TextButton.Font = Enum.Font.SciFi
+TextButton.Text = "Completing"
+TextButton.TextColor3 = Color3.new(1, 1, 1)
+TextButton.TextSize = 20
+TextButton.TextScaled = true
+TextButton.TextStrokeTransparency = 0.9
+
+-- Floating Auto Block toggle (can be clicked during a match)
+do
+    local AutoBlockToggleGui = Instance.new("ScreenGui")
+    AutoBlockToggleGui.Name = "AutoBlockFloatingToggle"
+    AutoBlockToggleGui.ResetOnSpawn = false
+    AutoBlockToggleGui.IgnoreGuiInset = true
+    AutoBlockToggleGui.Parent = CoreGui
+
+    local AutoBlockToggle = Instance.new("TextButton")
+    AutoBlockToggle.Name = "Toggle"
+    AutoBlockToggle.Parent = AutoBlockToggleGui
+    AutoBlockToggle.Size = UDim2.new(0, 150, 0, 48)
+    AutoBlockToggle.Position = UDim2.new(1, -170, 0.5, -24)
+    AutoBlockToggle.BackgroundTransparency = 0.15
+    AutoBlockToggle.BorderSizePixel = 0
+    AutoBlockToggle.TextColor3 = Color3.new(1, 1, 1)
+    AutoBlockToggle.TextScaled = true
+    AutoBlockToggle.Font = Enum.Font.GothamBold
+    AutoBlockToggle.ZIndex = 100
+    AutoBlockToggle.Active = true
+    AutoBlockToggle.Selectable = true
+
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0, 10)
+    Corner.Parent = AutoBlockToggle
+
+    local Stroke = Instance.new("UIStroke")
+    Stroke.Thickness = 2
+    Stroke.Parent = AutoBlockToggle
+
+    local AutoBlockValue = GetValue("AutoBlock", true)
+    local function UpdateAutoBlockToggle()
+        local Enabled = AutoBlockValue and AutoBlockValue.Value or false
+        AutoBlockToggle.Text = Enabled and "Auto Block: ON" or "Auto Block: OFF"
+        AutoBlockToggle.BackgroundColor3 = Enabled and Color3.fromRGB(0, 170, 85) or Color3.fromRGB(45, 45, 45)
+    end
+
+    AutoBlockToggle.MouseButton1Click:Connect(function()
+        if AutoBlockValue then
+            AutoBlockValue.Value = not AutoBlockValue.Value
+            UpdateAutoBlockToggle()
+        end
+    end)
+
+    if AutoBlockValue then
+        AutoBlockValue:GetPropertyChangedSignal("Value"):Connect(UpdateAutoBlockToggle)
+    end
+    UpdateAutoBlockToggle()
+
+    -- Drag ONLY from the left/right side handles.
+    -- The center of the button remains click-only, which prevents
+    -- two-finger touches from fighting over the toggle.
+    local Dragging = false
+    local DragStart
+    local StartPosition
+
+    local function MakeDragHandle(Name, XPosition)
+        local Handle = Instance.new("Frame")
+        Handle.Name = Name
+        Handle.Parent = AutoBlockToggle
+        Handle.Size = UDim2.new(0, 28, 1, 0)
+        Handle.Position = UDim2.new(XPosition, 0, 0, 0)
+        Handle.BackgroundTransparency = 1
+        Handle.BorderSizePixel = 0
+        Handle.Active = true
+        Handle.ZIndex = 101
+
+        Handle.InputBegan:Connect(function(Input)
+            if Input.UserInputType == Enum.UserInputType.MouseButton1
+                or Input.UserInputType == Enum.UserInputType.Touch then
+
+                Dragging = true
+                DragStart = Input.Position
+                StartPosition = AutoBlockToggle.Position
+
+                Input.Changed:Connect(function()
+                    if Input.UserInputState == Enum.UserInputState.End then
+                        Dragging = false
+                    end
+                end)
+            end
+        end)
+
+        return Handle
+    end
+
+    MakeDragHandle("LeftDragHandle", 0)
+    MakeDragHandle("RightDragHandle", 1)
+
+    UserInputService.InputChanged:Connect(function(Input)
+        if Dragging and (Input.UserInputType == Enum.UserInputType.MouseMovement
+            or Input.UserInputType == Enum.UserInputType.Touch) then
+
+            local Delta = Input.Position - DragStart
+            AutoBlockToggle.Position = UDim2.new(
+                StartPosition.X.Scale, StartPosition.X.Offset + Delta.X,
+                StartPosition.Y.Scale, StartPosition.Y.Offset + Delta.Y
+            )
+        end
+    end)
+end
+
+PlayerGui.ChildAdded:Connect(function(Child)
+    if Child.Name == "PuzzleUI" then
+        local ClonedLoadUI = LoadUI:Clone()
+        ClonedLoadUI.Parent = Child.Container.GridHolder
+        local InstanceAuto = GetValue("AutoGeneratorPuzzle",true)
+        ClonedLoadUI.Visible = InstanceAuto.Value
+        InstanceAuto:GetPropertyChangedSignal("Value"):Connect(function()
+            ClonedLoadUI.Visible = InstanceAuto.Value
+        end)
+        task.spawn(function()
+	        while task.wait() and ClonedLoadUI and ClonedLoadUI.Parent do
+                if ClonedLoadUI.Visible then
+                    for i = 1, 3 do
+                        ClonedLoadUI.Folder[i].Rotation = math.cos(tick() + i * 10) * 360
+                    end
+                else
+                    wait(0.1)
+                end
+	        end
+        end)
+    end
+end)
+
+if KillersFolder then
+    KillersFolder.ChildAdded:Connect(function(Child)
+        task.wait(0.5)
+        HandleNoliNPC(GetValue("DisableNoliNPC"))
+    end)
+end
+
+if InGame then
+    InGame.ChildAdded:Connect(function(Child)
+        task.wait(0.02)
+        Handle007n7NPC(GetValue("Disable007n7NPC"))
+    end)
+end
+
+RoundEvent.Event:Connect(function(Data)
+    IsUnderground = false
+end)
+
+if TextChatService:FindFirstChildOfClass("ChatWindowConfiguration") then
+    TextChatService:FindFirstChildOfClass("ChatWindowConfiguration"):GetPropertyChangedSignal("Enabled"):Connect(function()
+        if GetValue("ShowChat") then
+            TextChatService:FindFirstChildOfClass("ChatWindowConfiguration").Enabled = true
+        end
+    end)
+end
+
+if InGame then
+    InGame.ChildAdded:Connect(function(Child)
+        if Child:IsA("Tool") then
+            Child:SetAttribute("JustDropped", true)
+            task.delay(1.5, function()
+                if Child then
+                    Child:SetAttribute("JustDropped", nil)
+                end
+            end)
+        elseif Child:IsA("Folder") and (Child.Name):find("JohnDoeTrail") then
+            task.wait()
+            for i,v in Child:GetChildren() do
+                if v:IsA("BasePart") then
+                    v.CanTouch = not GetValue("DisableToxicTrails")
+                end
+            end
+            if not Child:GetAttribute("Checked") then
+                Child:SetAttribute("Checked", true)
+                Child.ChildAdded:Connect(function(v)
+                    if v:IsA("BasePart") then
+                        v.CanTouch = not GetValue("DisableToxicTrails")
+                    end
+                end)
+            end
+        elseif Child:IsA("Folder") and (Child.Name):find("Shadows") then
+            task.wait()
+            for i,v in Child:GetChildren() do
+                if v:IsA("BasePart") then
+                    v.CanTouch = not GetValue("DisableFootprints")
+                end
+            end
+            if not Child:GetAttribute("Checked") then
+                Child:SetAttribute("Checked", true)
+                Child.ChildAdded:Connect(function(v)
+                    if v:IsA("BasePart") then
+                        v.CanTouch = not GetValue("DisableFootprints")
+                    end
+                end)
+            end
+        elseif Child.Name == "SpikeCollision" then
+            task.delay(3.5,function()
+                Child.Size = GetValue("SmallerSpikeCollisions") and Vector3.new(11,3.5,3.5) or Vector3.new(11, 5, 5)
+                Child.Shape = GetValue("SmallerSpikeCollisions") and Enum.PartType.Cylinder or Enum.PartType.Block
+            end)
+        end
+    end)
+end
+
+if RagdollsFolder then
+    RagdollsFolder.ChildAdded:Connect(function(Ragdoll)
+        if GetValue("DeleteRagdolls") and GetValue("PrivateServer") then
+            RagdollsFolder:ClearAllChildren()
+        else
+            for i,v in Ragdoll:QueryDescendants("Highlight[$Dynamic],BillboardGui[$Dynamic]") do
+                v:Destroy()
+            end
+        end
+    end)
+end
+
+local Graf2 = workspace:FindFirstChild("Graf2",true)
+if Graf2 and math.round(Graf2.Position.X) == -3600 and Graf2:FindFirstChildWhichIsA("ImageLabel",true) then
+    Graf2.Position = Vector3.new(-3600, 19.25, 232.5)
+    Graf2.Size = Vector3.new(4.25, 1.5, 0.13)
+    Graf2.Rotation = Vector3.new(7, 90, 0)
+    Graf2:FindFirstChildWhichIsA("ImageLabel",true).Image = "rbxassetid://86461599034861"
+    Graf2:FindFirstChildWhichIsA("ImageLabel",true).ImageTransparency = 0.2
+end
+
+local BaseTweenInfo = TweenInfo.new(0.25)
+local MenuData
+if NewUIVersion then
+    local suc,err
+    if IsRequireSupported then
+        suc,err = pcall(function()
+            MenuData = require(ReplicatedStorage.Systems.Player:FindFirstChild("SidebarHandler",true))
+        end)
+    end
+    if not suc or not MenuData then
+        ColoredPrint("⚠ YOUR EXECUTOR DOES NOT SUPPORT THIS UI VERSION! ⚠\n Switch to a different executor or play a forsaken clone game that uses the V1 UI.\n The executor must fully support 'require' function for the script to work here", "error", Color3.new(1,0.4,0.25))
+        PlusButton.Visible = false
+        SidePlusButton.Visible = false
+        StarterGui:SetCore("DevConsoleVisible", true)
+        if MainUI:FindFirstChild("UpdateScreen") then
+            MainUI:FindFirstChild("UpdateScreen").Visible = false
+        end
+        return
+    end
+    MenuData.__index = MenuData
+    local UICreator = {}
+    UICreator.__index = UICreator
+    function UICreator.new(MenuName, MenuScreen)
+        local Metaverse = setmetatable({}, UICreator)
+        Metaverse.Menu = MenuScreen:Clone()
+        local MenuToggleBin = Instance.new("BindableEvent")
+        Metaverse.Toggled = MenuToggleBin
+        Metaverse.Button = nil
+        Metaverse.MenuName = MenuName
+        Metaverse.Menu.Visible = false
+        Metaverse.Menu.Size = UDim2.fromScale()
+        Metaverse.Menu.Parent = MainUI
+        for i,v in Metaverse.Menu:QueryDescendants("ScrollingFrame") do
+            v:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+                v.ScrollBarThickness = v.AbsoluteSize.X / 44
+            end)
+        end
+        return Metaverse
+    end
+    function UICreator.ToggleMenu(selfdata)
+        local DataSideBar = selfdata._sidebar
+        if DataSideBar.TogglingMenus then
+            return
+        elseif DataSideBar.MenusHidden and selfdata.SidebarButton then
+            return
+        elseif not (false and selfdata.Menu.Visible) then
+            DataSideBar.TogglingMenus = true
+            local VisibleUI = selfdata.Menu.Visible
+            PlaySound("select")
+            local SideBarMenu
+            for i, v in DataSideBar.SidebarMenus do
+                if v.Menu ~= selfdata.Menu or VisibleUI then
+                    if v.Menu ~= selfdata.Menu then
+                        if v.Menu.Visible then
+                            SideBarMenu = v
+                        end
+                    end
+                    if v.Menu.Visible then
+                        v.Toggled:Fire(false)
+                        local UIModule = ReplicatedStorage.Systems.Player.UI.Menus:FindFirstChild(v.MenuName)
+                        local success, result = pcall(require, UIModule)
+                        if success and (result and result.OnTransitionState) then
+                            result.OnTransitionState(false)
+                        else
+                            TweenService:Create(v.Menu, BaseTweenInfo, {
+                                ["Size"] = UDim2.new(1, -20, 0, 0)
+                            }):Play()
+                            task.delay(0.25, function()
+                                v.Menu.Visible = false
+                            end)
+                        end
+                        SetButtonState(false)
+                        if v.Button then
+                            v.Button:SetAppearanceState(false)
+                        end
+                    end
+                end
+            end
+            task.delay(0.3 + (SideBarMenu and 0.125 or 0), function()
+                DataSideBar.TogglingMenus = nil
+            end)
+            if SideBarMenu then
+                task.wait(0.125)
+                if DataSideBar.MenusHidden then
+                    DataSideBar.TogglingMenus = nil
+                    return
+                end
+            end
+            if not VisibleUI then
+                selfdata.Toggled:Fire(true)
+                local UIModule = ReplicatedStorage.Systems.Player.UI.Menus:FindFirstChild(selfdata.MenuName)
+                local success, result = pcall(require, UIModule)
+                if success and (result and result.OnTransitionState) then
+                    result.OnTransitionState(true)
+                else
+                    selfdata.Menu.Visible = true
+                    TweenService:Create(selfdata.Menu, BaseTweenInfo, {
+                        ["Size"] = UDim2.new(1, -20, 1, -20)
+                    }):Play()
+                end
+                SetButtonState(true)
+                if selfdata.Button then
+                    selfdata.Button:SetAppearanceState(true)
+                end
+            end
+        end
+    end
+    function MenuData.CreateSidebarMenu(self, MenuName, MenuScreen)
+        local Data = UICreator.new(MenuName, MenuScreen)
+        Data._sidebar = self
+        Data.SidebarButton = Buttons:FindFirstChild(MenuName)
+        task.delay(0, function()
+            Data.Button = MenuData.SidebarButtons[MenuName]
+        end)
+        MenuData.SidebarMenus[MenuName] = Data
+        return Data
+    end
+else
+    MenuData = {
+        ["SidebarMenus"] = {},
+        ["Sidebars"] = {
+            ["Sidebar"] = MainUI.Sidebar,
+            ["Bottombar"] = MainUI.Sidebar:FindFirstChild("Bottombar") or nil
+        }
+    }
+    MenuData.__index = MenuData
+    function MenuData.CreateSidebarMenu(self, ButtonName, Menu, Bottom)
+        local Data = setmetatable({}, MenuData)
+        Data.Menu = Menu
+        Data.Menu.Visible = false
+        Data.Menu.Size = UDim2.fromScale()
+        Data.Menu.Parent = MainUI
+        Data.SidebarButton = Buttons:FindFirstChild(ButtonName)
+        local BindableEvent = Instance.new("BindableEvent")
+        BindableEvent.Parent = Data.Menu
+        Data.Toggled = BindableEvent.Event
+        Data.__toggleEvent = BindableEvent
+        for i,v in pairs(Data.Menu:QueryDescendants("ScrollingFrame")) do
+            v:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+                v.ScrollBarThickness = v.AbsoluteSize.X / 44
+            end)
+        end
+        self.SidebarMenus[ButtonName] = Data
+        return Data
+    end
+    function MenuData.ToggleMenu(UIData, p24)
+        if MenuData.TogglingMenus then
+            return
+        elseif MenuData.MenusHidden and UIData.SidebarButton then
+            return
+        elseif not (p24 and UIData.Menu.Visible) then
+            MenuData.TogglingMenus = true
+            PlaySound("select")
+            local Visible = UIData.Menu.Visible
+            for i,v in SideBar:QueryDescendants(`#{Buttons.Name} > Frame:not(#Credits):not(#Spectate):not(#Plus):not(#TesterUi)`) do
+                v.Button.Interactable = false
+                task.delay(0.3, function()
+                    v.Button.Interactable = true
+                end)
+            end
+            for i,Menu in pairs(MenuData.SidebarMenus) do
+                if Menu.Menu ~= UIData.Menu or Visible then
+                    if Menu.Menu.Visible then
+                        Menu.__toggleEvent:Fire(false)
+                        
+                        TweenService:Create(Menu.Menu, BaseTweenInfo, {["Size"] = UDim2.new(1, -20, 0, 0)}):Play()
+                        if Menu.SidebarButton then
+                            TweenService:Create(Menu.SidebarButton.Inverted, BaseTweenInfo, {["ImageTransparency"] = 1}):Play()
+                            TweenService:Create(Menu.SidebarButton.InvertedIcon, BaseTweenInfo, {["ImageTransparency"] = 1}):Play()
+                            TweenService:Create(Menu.SidebarButton.PulloutHolder.PulloutFrame.Inverted, BaseTweenInfo, {["ImageTransparency"] = 1}):Play()
+                            TweenService:Create(Menu.SidebarButton.PulloutHolder.PulloutFrame.Title, BaseTweenInfo, {
+                                ["TextColor3"] = Menu.Menu.Name == "PlusScreen" and Color3.fromRGB(0, 170, 127) or Color3.new(1,1,1) 
+                            }):Play()
+                        end
+                        task.delay(0.25, function()
+                            Menu.Menu.Visible = false
+                        end)
+                    end
+                end
+            end
+            task.delay(0.3, function()
+                MenuData.TogglingMenus = nil
+            end)
+            if MenuData.MenusHidden then
+                return
+            end
+            if not Visible then
+                UIData.__toggleEvent:Fire(true)
+                UIData.Menu.Visible = true
+                TweenService:Create(UIData.Menu, BaseTweenInfo, {["Size"] = UDim2.new(1, -20, 1, -20)}):Play()
+                if UIData.SidebarButton then
+                    TweenService:Create(UIData.SidebarButton.Inverted, BaseTweenInfo, {["ImageTransparency"] = 0}):Play()
+                    TweenService:Create(UIData.SidebarButton.InvertedIcon, BaseTweenInfo, {["ImageTransparency"] = 0}):Play()
+                    TweenService:Create(UIData.SidebarButton.PulloutHolder.PulloutFrame.Inverted, BaseTweenInfo, {["ImageTransparency"] = 0}):Play()
+                    TweenService:Create(UIData.SidebarButton.PulloutHolder.PulloutFrame.Title, BaseTweenInfo, {["TextColor3"] = Color3.new()}):Play()
+                end
+            end
+        end
+    end
+end
+ModulesOptions = {
+    ["Textbox"] = [=[
+        local u1 = {}
+        u1.__index = u1
+        local PlaySound = ({...})[1]
+        function u1.CreateSettingUI(_, u2, p3, u4)
+            if not u2 then
+                u2 = Instance.new("StringValue")
+                u2.Name = "SettingValue"
+            end
+            local v6 = u1
+            local u7 = setmetatable({
+                ["SettingValue"] = u2
+            }, v6)
+            u7.Value = u2.Value
+            u7.Instance = p3 or game:GetService("ReplicatedStorage").Systems.Player.UI.Menus.Settings.Templates.Textbox.Textbox:Clone()
+            u7.Instance.TextboxBackground.Textbox.Focused:Connect(function()
+                PlaySound("click")
+            end)
+            u7.Instance.TextboxBackground.Textbox.FocusLost:Connect(function()
+                if u2.Name == "SettingValue" or u2.Name == "Value" then
+                    u7.Value = u7.Instance.TextboxBackground.Textbox.Text
+                    u7:OnUpdate()
+                    if u4 then
+                        u4(u7.Value)
+                    end
+                else
+                    u2.Value = u7.Instance.TextboxBackground.Textbox.Text
+                end
+                PlaySound("click")
+            end)
+            return u7
+        end
+        function u1.OnUpdate(p8)
+            p8.Instance.TextboxBackground.Textbox.Text = p8.Value or ""
+        end
+        return u1
+    ]=],
+    ["String"] = [=[
+        local u1 = {}
+        u1.__index = u1
+        local u2 = 200
+        local PlaySound = ({...})[1]
+        function u1.CreateSettingUI(_, u3, p4, u5)
+            if not u3 then
+                u3 = Instance.new("StringValue")
+                u3.Name = "SettingValue"
+            end
+            local v7 = u1
+            local u8 = setmetatable({
+                ["SettingValue"] = u3
+            }, v7)
+            u8.Value = u3.Value
+            u8.Instance = p4 or game:GetService("ReplicatedStorage").Systems.Player.UI.Menus.Settings.Templates.String.Dropdown:Clone()
+            u8.DropdownVisible = false
+            local UIListLayout = u8.Instance.DropdownFrame.Options:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout")
+            UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+            UIListLayout.Parent = u8.Instance.DropdownFrame.Options
+            u8.Instance.DropdownFrame.MouseButton1Click:Connect(function()
+                PlaySound("click")
+                local MainZIndex = u8.Instance.LayoutOrder
+                u8.DropdownVisible = not u8.DropdownVisible
+                u8.Instance.DropdownFrame.DropdownArrow.Rotation = u8.DropdownVisible and 180 or 0
+                u8.Instance.DropdownFrame.Options.Visible = u8.DropdownVisible
+                u8.Instance.ZIndex = 50000 - (MainZIndex * 2) 
+                for _, v9 in pairs(u8.Instance.DropdownFrame.Options:GetChildren()) do
+                    if v9:IsA("GuiObject") then
+                        v9:Destroy()
+                    end
+                end
+                local function Update()
+                    local v10 = u3:GetAttribute("Options")
+                    if v10 then
+                        v10 = string.split(u3:GetAttribute("Options"), "|")
+                    end
+                    for _, v9 in pairs(u8.Instance.DropdownFrame.Options:GetChildren()) do
+                        if v9:IsA("GuiObject") then
+                            v9:Destroy()
+                        end
+                    end
+                    for v11, u12 in pairs(v10 or {}) do
+                        local v13 = game:GetService("ReplicatedStorage").Systems.Player.UI.Menus.Settings.Templates.String.DropdownOption:Clone()
+                        v13.Name = u12
+                        v13.LayoutOrder = v11
+                        v13.Title.Text = v13.Name
+                        v13.Parent = u8.Instance.DropdownFrame.Options
+                        v13.MouseButton1Click:Connect(function()
+                            if u3.Name == "SettingValue" or u3.Name == "Value" then
+                                u8.Value = u12
+                                u8:OnUpdate()
+                                if u5 then
+                                    u5(u8.Value)
+                                end
+                            else
+                                u3.Value = u12
+                            end
+                            PlaySound("switch0".. tostring(math.random(1,4)))
+                        end)
+                    end
+                end
+                Update()
+                u3:GetAttributeChangedSignal("Options"):Connect(Update)
+            end)
+            return u8
+        end
+        function u1.OnUpdate(p14)
+            p14.Instance.DropdownFrame.ChosenValue.Title.Text = p14.Value
+            p14.Instance.DropdownFrame.Options.Visible = false
+            p14.Instance.DropdownFrame.DropdownArrow.Rotation = 0
+            p14.DropdownVisible = false
+        end
+        return u1
+    ]=],
+    ["Number"] = [=[
+        local u1 = {}
+        u1.__index = u1
+        local PlaySound = ({...})[1]
+        function u1.CreateSettingUI(_, u2, p3, u4)
+            if not u2 then
+                u2 = Instance.new("NumberValue")
+                u2.Name = "SettingValue"
+            end
+            local v6 = u1
+            local u7 = setmetatable({
+                ["SettingValue"] = u2
+            }, v6)
+            u7.Instance = p3 or game:GetService("ReplicatedStorage").Systems.Player.UI.Menus.Settings.Templates.Number.Slider:Clone()
+            u7.Value = u2.Value
+            local u8 = u7.Instance.DragBar
+            local u9 = u8.Dragger
+            local u10 = game.Players.LocalPlayer:GetMouse()
+            local u11 = u2:GetAttribute("MinValue")
+            local u12 = u2:GetAttribute("MaxValue")
+            local u13 = u2:GetAttribute("Step")
+            u7.__displayValue = Instance.new("NumberValue")
+            u7.__displayValue.Name = "__displayValue"
+            u7.__displayValue.Value = u2.Value
+            u7.__displayValue.Parent = u7.Instance
+            u7.__displayValue:GetPropertyChangedSignal("Value"):Connect(function()
+                local v14 = u9.Title
+                local v15 = u7.__displayValue.Value
+                local v16 = tonumber(string.format("%.10g", math.floor((v15/u13) + 0.5) * u13))
+                v14.Text = v16
+            end)
+            local v17 = u9.Title
+            local v18 = u7.__displayValue.Value
+            local v19 = tonumber(string.format("%.10g", math.floor((v18/u13) + 0.5) * u13))
+            v17.Text = tostring(v19)
+            u9.MouseButton1Down:Connect(function()
+                u7.Dragging = true
+                PlaySound("switch0" .. tostring(math.random(1, 4)))
+                while task.wait() and u7.Dragging do
+                    local v20 = u10.X
+                    local v21 = u8.AbsoluteSize.X
+                    local v22 = (v20 - u8.AbsolutePosition.X) / v21
+                    local v23 = u11
+                    local v24 = u12
+                    local v25 = v23 + (v24 - v23) * v22
+                    local v26 = math.clamp(v25, v23, v24)
+                    local RoundedNumber = tonumber(string.format("%.10g", math.floor((v26/u13) + 0.5) * u13))
+                    local v27 = u13
+                    if v27 ~= 0 or not v26 then
+                        local v28 = (v26 + v27 / 2) / v27
+                        v26 = math.floor(v28) * v27
+                    end
+                    if u7.Value ~= RoundedNumber then
+                        PlaySound("tick0"..tostring(math.random(1,3)), {
+                            ["Volume"] = 0.025
+                        })
+                        u7.Value = RoundedNumber
+                        u7:OnUpdate()
+                        if u7.__updatedEvent then
+                            u7.__updatedEvent:Fire()
+                        end
+                    end
+                end
+            end)
+            game.UserInputService.InputEnded:Connect(function(p29)
+                if u7.Dragging then
+                    if p29.UserInputType == Enum.UserInputType.MouseButton1 or (p29.UserInputType == Enum.UserInputType.Touch or p29.UserInputType == Enum.UserInputType.Gamepad1 and p29.KeyCode == Enum.KeyCode.ButtonR2) then
+                        u7.Dragging = false
+                        PlaySound("switch0".. tostring(math.random(1,4)))
+                        if u2.Name ~= "SettingValue" and u2.Name ~= "Value" then
+                            u2.Value = u7.Value
+                        end
+                        u7:OnUpdate()
+                        if u4 then
+                            u4(u7.Value)
+                        end
+                    end
+                end
+            end)
+            return u7
+        end
+        function u1.OnUpdate(p30)
+            local v31 = p30.SettingValue:GetAttribute("MinValue")
+            local v32 = p30.SettingValue:GetAttribute("MaxValue")
+            local v33 = (p30.Value - v31) / (v32 - v31)
+            local v34 = math.clamp(v33, 0, 1)
+            local v35 = p30.Instance.DragBar.Dragger
+            local v36 = math.clamp(v34, 0, 1)
+            game.TweenService:Create(v35, TweenInfo.new(0.1), {
+                ["Position"] = UDim2.fromScale(v36, 0.5)
+            }):Play()
+            game.TweenService:Create(p30.__displayValue, TweenInfo.new(0.1), {
+                ["Value"] = p30.Value
+            }):Play()
+        end
+        return u1
+    ]=],
+    ["Keybind"] = [=[
+        local u1 = {}
+        u1.__index = u1
+        local PlaySound = ({...})[1]
+        function u1.CreateSettingUI(_, u2, p3)
+            if not u2 then
+                u2 = Instance.new("StringValue")
+                u2.Name = "SettingValue"
+            end
+            local v6 = u1
+            local u7 = setmetatable({
+                ["SettingValue"] = u2
+            }, v6)
+            u7.Instance = p3 or game:GetService("ReplicatedStorage").Systems.Player.UI.Menus.Settings.Templates.Keybind.KeybindFrame:Clone()
+            u7.IsKeybind = true
+            local u8 = {
+                "None",
+                "Unknown",
+                "MouseMovement",
+                "Focus",
+                "Accelerometer",
+                "TextInput"
+            }
+            u7.Instance.KeybindButton.MouseButton1Click:Connect(function()
+                PlaySound("click")
+                if u1.__currentConnection then
+                    return
+                elseif not u7.__debounce then
+                    u7.__debounce = true
+                    task.delay(0.25, function()
+                        u7.__debounce = nil
+                    end)
+                    task.wait(0.05)
+                    u7.Instance.KeybindButton.CurrentBind.Title.Text = "..."
+                    u1.__currentConnection = game.UserInputService.InputEnded:Connect(function(p9)
+                        if u1.__currentConnection then
+                            local v10 = p9.KeyCode == Enum.KeyCode.Unknown and p9.UserInputType.Name or p9.KeyCode.Name
+                            if table.find(u8, v10) or p9.KeyCode == Enum.KeyCode.Unknown and u2:GetAttribute("KeycodeOnly") then
+                                PlaySound("error")
+                                return
+                            end
+                            local v11 = require(game.ReplicatedStorage.Initializer)
+                            for v12, v13 in pairs(v11.PlayerSettings) do
+                                if v13.IsKeybind and (v13.Value == v10 and v12 ~= u2.Name) then
+                                    PlaySound("error")
+                                    return
+                                end
+                            end
+                            u2.Value = v10
+                            PlaySound("switch0".. tostring(math.random(1,4)))
+                            if u1.__currentConnection then
+                                u1.__currentConnection:Disconnect()
+                                u1.__currentConnection = nil
+                            end
+                            u7.Instance.KeybindButton.CurrentBind.Title.Text = v10
+                        end
+                    end)
+                end
+            end)
+            local function v15()
+                local v14 = "PC"
+                if v14 == "Console" and u2.Name:find("~Console") then
+                    u7.Instance.Visible = true
+                    return
+                elseif v14 == "PC" and not u2.Name:find("~Console") then
+                    u7.Instance.Visible = true
+                else
+                    u7.Instance.Visible = false
+                end
+            end
+            v15()
+            return u7
+        end
+        function u1.OnUpdate(p16)
+            p16.Instance.KeybindButton.CurrentBind.Title.Text = p16.Value
+        end
+        return u1
+    ]=],
+    ["Bool"] = [=[
+        local u1 = {}
+        u1.__index = u1
+        local PlaySound = ({...})[1]
+        function u1.CreateSettingUI(_, u2, p3)
+            if not u2 then
+                u2 = Instance.new("BoolValue")
+                u2.Name = "SettingValue"
+            end
+            local v4 = u1
+            local u5 = setmetatable({
+                ["SettingValue"] = u2
+            }, v4)
+            u5.isDebounce = false
+            u5.Instance = p3 or game:GetService("ReplicatedStorage").Systems.Player.UI.Menus.Settings.Templates.Bool.Checkbox:Clone()
+            u5.Instance.CheckboxButton.MouseButton1Click:Connect(function()
+                if not u5.isDebounce then
+                    u5.isDebounce = true
+                    task.delay(0.25, function()
+                        u5.isDebounce = false
+                    end)
+                    PlaySound("switch0".. tostring(math.random(1,4)))
+                    u2.Value = not u2.Value
+                end
+            end)
+            return u5
+        end
+        function u1.OnUpdate(p6)
+            p6.Value = p6.SettingValue.Value
+            p6.Instance.CheckboxButton.Checked.Visible = p6.Value
+        end
+        return u1
+    ]=]
+}
+
+local Initializer = {}
+function Initializer.Start()
+    local SettingsData = {}
+    SettingsData.PlayerSettings = {}
+    Initializer.SettingsMenu = MenuData:CreateSidebarMenu("Plus", PlusMenu)
+    if NewUIVersion then
+        PlusMenu:Destroy()
+        PlusMenu = Initializer.SettingsMenu.Menu
+    end
+    local Contents = Initializer.SettingsMenu.Menu.SettingsContainer.Contents
+    local Templates = ReplicatedStorage.Systems.Player.UI.Menus.Settings.Templates
+    local function SetupSettingUI(SettingInstance, LayoutNumber)
+        local v10 = LayoutNumber or 0
+        local LayoutOrder = SettingInstance:GetAttribute("LayoutOrder")
+        local DisplayTitle = SettingInstance:GetAttribute("DisplayTitle")
+        if LayoutOrder and DisplayTitle then
+            if SettingInstance:IsA("Folder") then
+                local Seperator = Templates.Seperator:Clone()
+                Seperator.Name = SettingInstance.Name
+                Seperator.LayoutOrder = LayoutOrder * 100 + v10
+                Seperator.Title.Text = DisplayTitle
+                Seperator.Parent = Contents
+                for i,v in pairs(SettingInstance:GetChildren()) do
+                    SetupSettingUI(v,LayoutOrder * 100)
+                end
+            elseif SettingInstance:IsA("ValueBase") then
+                local SettingType = Templates:FindFirstChild(SettingInstance:GetAttribute("TemplateType") or string.gsub(SettingInstance.ClassName, "Value", ""))
+                for i,Child in pairs(Templates:GetChildren()) do
+                    if SettingInstance.Parent.Name:find(Child.Name) then
+                        SettingType = Child
+                    end
+                end
+                if SettingType then
+                    local ModuleType = ModulesOptions[tostring(SettingType.Name)]
+                    SettingType = loadstring(tostring(ModuleType))(PlaySound)
+                end
+                if SettingType and SettingType.CreateSettingUI then
+                    local SettingUI = SettingType:CreateSettingUI(SettingInstance)
+                    SettingUI.Instance.Name = SettingInstance.Name
+                    SettingUI.Instance.LayoutOrder = LayoutOrder + v10
+                    SettingUI.Instance.Parent = Contents
+                    local Requirement = SettingInstance:GetAttribute("Requirement")
+                    local BindableCallCheckRequirement = Instance.new("BindableEvent")
+                    local Requirements = {}
+                    BindableCallCheckRequirement.Event:Connect(function()
+                        local AllTrue = true                            
+                        for i,v in pairs(Requirements) do
+                            if not v then
+                                AllTrue = false
+                                break
+                            end
+                        end
+                        if AllTrue then
+                            SettingUI.Instance.Visible = true
+                        else
+                            SettingUI.Instance.Visible = false
+                        end
+                    end)
+                    if type(Requirement) == "string" and Requirement:find("|") then
+                        for i,v in (string.split(Requirement, "|")) do
+                            Requirements[v] = false
+                        end
+                    else
+                        Requirements = Requirement and {[Requirement] = false} or {}
+                    end
+                    for Requirement,v in pairs(Requirements) do
+                        Requirements[Requirement] = false
+                        local InstanceValue = type(Requirement) == "string" and PlusFolderSettings:FindFirstChild(Requirement, true) or nil
+                        if InstanceValue and Requirement ~= true then
+                            Requirements[Requirement] = InstanceValue.Value
+                            InstanceValue:GetPropertyChangedSignal("Value"):Connect(function()
+                                Requirements[Requirement] = InstanceValue.Value
+                                BindableCallCheckRequirement:Fire()
+                            end)
+                        elseif Requirement == true then
+                            Requirements[Requirement] = false
+                            BindableCallCheckRequirement:Fire()
+                        elseif Requirement:find("=") then
+                            local SplitData = string.split(Requirement, "=")
+                            local Value = SplitData[2]
+                            local CheckerInstance = PlusFolderSettings:FindFirstChild(SplitData[1], true)
+                            if CheckerInstance then
+                                local function Update()
+                                    if tostring(CheckerInstance.Value) == Value or tostring(CheckerInstance.Value):lower() == "both" or tostring(CheckerInstance.Value):lower() == "all" then
+                                        Requirements[Requirement] = true
+                                    else
+                                        Requirements[Requirement] = false
+                                    end
+                                    BindableCallCheckRequirement:Fire()
+                                end
+                                Update()
+                                CheckerInstance:GetPropertyChangedSignal("Value"):Connect(Update)
+                            end
+                        elseif Requirement:find("~") then
+                            local SplitData = string.split(Requirement, "~")
+                            local Value = SplitData[2]
+                            local CheckerInstance = PlusFolderSettings:FindFirstChild(SplitData[1], true)
+                            if CheckerInstance then
+                                local function Update()
+                                    if tostring(CheckerInstance.Value) ~= Value then
+                                        Requirements[Requirement] = true
+                                    else
+                                        Requirements[Requirement] = false
+                                    end
+                                    BindableCallCheckRequirement:Fire()
+                                end
+                                Update()
+                                CheckerInstance:GetPropertyChangedSignal("Value"):Connect(Update)
+                            end
+                        end
+                    end
+                    BindableCallCheckRequirement:Fire()
+                    SettingInstance:GetAttributeChangedSignal("Requirement"):Connect(function()
+                        Requirement = SettingInstance:GetAttribute("Requirement")
+                        Requirements = {}
+                        if type(Requirement) == "string" and Requirement:find("|") then
+                            for i,v in (string.split(Requirement, "|")) do
+                                Requirements[v] = false
+                            end
+                        else
+                            Requirements = Requirement and {[Requirement] = false} or {}
+                        end
+                        BindableCallCheckRequirement:Fire()
+                    end)
+                    local ResetButton = Templates.Reset:Clone()
+                    ResetButton.Parent = SettingUI.Instance
+                    ResetButton.MouseButton1Click:Connect(function()
+                        SettingInstance.Value = FeatureLoadout[SettingInstance.Parent.Name][SettingInstance.Name]["DefaultInstanceValue"]
+                        PlaySound("switch0".. tostring(math.random(1,4)))
+                    end)
+                    ResetButton.MouseEnter:Connect(function()
+                        PlaySound("hover")
+                    end)
+                    ResetButton.MouseLeave:Connect(function()
+                        PlaySound("hoverEnd")
+                    end)
+
+                    SettingUI.Instance:FindFirstChild("SettingName", true).Text = (DisplayTitle or "")
+                    SettingInstance:GetAttributeChangedSignal("DisplayTitle"):Connect(function()
+                        SettingUI.Instance:FindFirstChild("SettingName", true).Text = (SettingInstance:GetAttribute("DisplayTitle") or "")
+                    end)
+                    SettingUI.Instance:FindFirstChild("SettingDesc", true).Text = (SettingInstance:GetAttribute("DisplayDescription") or "")
+                    SettingInstance:GetAttributeChangedSignal("DisplayDescription"):Connect(function()
+                        SettingUI.Instance:FindFirstChild("SettingDesc", true).Text = (SettingInstance:GetAttribute("DisplayDescription") or "")
+                    end)
+                    SettingUI.__updatedEvent = Instance.new("BindableEvent", SettingUI.Instance)
+                    SettingUI.Updated = SettingUI.__updatedEvent.Event
+                    local SettingFeature = FeatureLoadout[SettingInstance.Parent.Name][SettingInstance.Name]
+                    if SettingFeature then
+                        SettingUI.Updated:Connect(function(Starting)
+                            if SettingFeature.ScriptFunction then
+                                SettingFeature:ScriptFunction(SettingUI.Value,Starting or false)
+                            end
+                        end)
+                    end
+                    SettingUI.Value = SettingInstance.Value
+                    if SettingUI.OnUpdate then
+                        SettingUI:OnUpdate()
+                    end
+                    SettingUI.__updatedEvent:Fire(true)
+                    SettingInstance:GetPropertyChangedSignal("Value"):Connect(function()
+                        SettingUI.Value = SettingInstance.Value
+                        if SettingUI.OnUpdate then
+                            SettingUI:OnUpdate()
+                        end
+                        SettingUI.__updatedEvent:Fire()
+                    end)
+                    SettingsData.PlayerSettings[SettingInstance.Name] = SettingUI
+                    task.wait()
+                end
+            end
+        else
+            return
+        end
+    end
+    task.spawn(function()
+        for i,Child in pairs(PlusFolderSettings:GetChildren()) do
+            SetupSettingUI(Child)
+        end
+    end)
+    task.spawn(function()
+        if game.GameId == 6331902150 then
+            local JsonVersionData
+            task.delay(5,function()
+                if not JsonVersionData then
+                    ColoredPrint("Getting game version info is taking longer than usual.\nRovalra API has not responded in expected time.","warn")
+                end
+                task.wait(12)
+                if not JsonVersionData then
+                    ColoredPrint(`Since it still has not gotten a response API still (after 17 seconds)\nYou can Manually check if the game has updated before the script has!\n(Last Script Update/Test : {GameVersionForScript})`,"info")
+                end
+            end)
+            JsonVersionData = (game:HttpGet("https://apis.rovalra.com/v1/games/history?place_id=18687417158"))
+            if not JsonVersionData then
+                ColoredPrint(`Failed to get game version info.\n Automatic update check failed.\n `)
+                return
+            end
+            local Success,TableVersionData = pcall(function() return HttpService:JSONDecode(tostring(JsonVersionData)) end)
+            local CurrentGameVersion = (Success and TableVersionData and type(TableVersionData) == "table" and TableVersionData["history"] and TableVersionData["history"][1] and TableVersionData["history"][1]["first_seen"]) or GameVersionForScript
+            CurrentGameVersion = CurrentGameVersion:sub(1,10)
+            local y,m,d = GameVersionForScript:match("(%d+)-(%d+)-(%d+)")
+            local ThenTime = os.time{year=y, month=m, day=d}
+            y,m,d = CurrentGameVersion:match("(%d+)-(%d+)-(%d+)")
+            local CurrentTime = os.time{year=y, month=m, day=d}
+            local DaysSinceScriptUpdate = math.floor(math.abs(ThenTime - os.time()) / 86400)
+            local DaysSinceGameUpdate = math.floor(math.abs(CurrentTime - os.time()) / 86400)
+            if ThenTime < CurrentTime and DaysSinceScriptUpdate > 1 then
+                ColoredPrint("Days since last script update: " .. DaysSinceScriptUpdate,"info", Color3.fromRGB(236, 48, 120))
+                ColoredPrint("Days since game update: " .. DaysSinceGameUpdate,"info", Color3.fromRGB(236, 48, 120))
+                FeatureLoadout["Outdated"] = {
+                    ["TabAttributes"] = {
+                        ["DisplayTitle"] = '<font color="rgb(255,166,0)">⚠</font>' .. RichTextGradientColor(" SCRIPT ISN'T TESTED FOR THIS GAME VERSION ",{Color3.fromRGB(255, 166, 0), Color3.fromRGB(243, 227, 0)}) .. '<font color="rgb(243, 227, 0)">⚠</font>',
+                        ["LayoutOrder"] = -2
+                    }
+                }
+                local Folder = HandleUIFeatures("Outdated",FeatureLoadout["Outdated"])
+                SetupSettingUI(Folder)
+                ColoredPrint(`The game has updated and it has been detected that the script has not been tested/updated for this version.\n{GetValue("DisableAllFeatures") and "All features have been disabled by default to prevent from you possibly getting detected.\n" or ""}Use the features with caution or wait for a update from the script.`, "warning", Color3.fromRGB(255, 166, 0))
+                if GetValue("DisableAllFeatures") then
+                    for i,v in FeatureLoadout do
+                        for i2,v2 in v do
+                            if i2 == "DisableAllFeatures" then continue end
+                            v2["Savable"] = false
+                            if type(v2["DefaultInstanceValue"]) == "boolean" and v2["Instance"] and i ~= "Outdated" and i ~= "EnviromentFunctions" then
+                                v2["DefaultInstanceValue"] = false
+                                v2["Instance"].Value = false
+                            elseif type(v2["DefaultInstanceValue"]) ~= "boolean" and v2["Instance"] and i ~= "Outdated" and i ~= "EnviromentFunctions" then
+                                v2["Instance"].Value = v2["DefaultInstanceValue"]
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end)
+end
+Initializer.Start()
+
+if SidePlusButton:IsA("Frame") then
+    task.spawn(function()
+        local Menu = MenuData.SidebarMenus[SidePlusButton.Name]
+        if NewUIVersion then
+            local CountingMod = false
+            if Menu then
+                SidePlusButton.Button.MouseButton1Click:Connect(function()
+                    MenuData.SidebarMenus["Plus"]["_sidebar"]["MenusHidden"] = false
+                    if not PlusMenu.Visible then
+                        for i,v in MainUI:GetChildren() do
+                            if v ~= PlusMenu and (v.Name):find("Screen") or v.Name == "Shop" then
+                                local ButtonName = v.Name:gsub("Screen","")
+                                local Button = SideBar:FindFirstChild(ButtonName,true)
+                                if not Button and ButtonName ~= "Mod" then continue end
+                                if (MenuData.SidebarMenus[ButtonName] and not MenuData.SidebarMenus[ButtonName]["Checked"]) or (ButtonName == "Mod" and not CountingMod) then
+                                    if ButtonName == "Mod" then
+                                        CountingMod = true
+                                    else
+                                        MenuData.SidebarMenus[ButtonName]["Checked"] = true
+                                    end
+                                    if Button then
+                                        Button.Button.MouseButton1Click:Connect(function()
+                                            if PlusMenu.Visible and MenuData.TogglingMenus == nil then
+                                                SetButtonState(false)
+                                            end
+                                        end)
+                                    elseif ButtonName == "Mod" and PlayerGui.TopbarStandard.Holders.Left:FindFirstChild("Widget") then
+                                        local TopMod
+                                        for i,v in PlayerGui.TopbarStandard.Holders.Left:GetChildren() do
+                                            if v:FindFirstChildWhichIsA("TextLabel",true) and v:FindFirstChildWhichIsA("TextLabel",true).Text == "Command Panel" then
+                                                TopMod = v
+                                                break
+                                            end
+                                        end
+                                        if TopMod then
+                                            TopMod.IconButton.Menu.IconSpot.ClickRegion.MouseButton1Click:Connect(function()
+                                                if PlusMenu.Visible and MenuData.TogglingMenus == nil then
+                                                    SetButtonState(false)
+                                                end
+                                            end)
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                    if MenuData.TogglingMenus == nil then
+                        Menu:ToggleMenu()
+                    end
+                end)
+            end
+        else
+            if Menu then
+            SidePlusButton.Button.MouseButton1Click:Connect(function()
+                if not PlusMenu.Visible then
+                    for i,v in MainUI:GetChildren() do
+                        if v ~= PlusMenu and (v.Name):find("Screen") then
+                            local ButtonName = v.Name:gsub("Screen","")
+                            local Button = Buttons:FindFirstChild(ButtonName) or (SideBar:FindFirstChild("Bottombar") and SideBar.Bottombar.Buttons:FindFirstChild(ButtonName)) or nil
+                            if not Button and ButtonName ~= "Mod" then continue end
+                            local Event = v:FindFirstChildOfClass("BindableEvent")
+                            if MenuData.SidebarMenus[ButtonName] == nil then
+                                if Button then
+                                    Button.Button.MouseButton1Click:Connect(function()
+                                        if PlusMenu.Visible and MenuData.TogglingMenus == nil then
+                                            Menu:ToggleMenu()
+                                        end
+                                    end)
+                                elseif v.Name == "ModScreen" and PlayerGui.TopbarStandard.Holders.Left:FindFirstChild("Widget") then
+                                    PlayerGui.TopbarStandard.Holders.Left.Widget.IconButton.Menu.IconSpot.ClickRegion.MouseButton1Click:Connect(function()
+                                        if PlusMenu.Visible and MenuData.TogglingMenus == nil then
+                                            Menu:ToggleMenu()
+                                        end
+                                    end)
+                                end
+                                MenuData.SidebarMenus[ButtonName] = {
+                                    ["Toggled"] = Event and Event.Event or nil,
+                                    ["SidebarButton"] = Buttons:FindFirstChild(ButtonName) or nil,
+                                    ["Menu"] = MainUI:FindFirstChild(v.Name),
+                                    ["__toggleEvent"] = Event or nil
+                                }
+                            end
+                        end
+                    end
+                end
+                if MenuData.TogglingMenus == nil then
+                    Menu:ToggleMenu()
+                end
+            end)
+        end
+        end
+    end)
+    if NewUIVersion then
+        local OriginalSize = SidePlusButton.Size
+        SidePlusButton.MouseEnter:Connect(function()
+            TweenService:Create(SidePlusButton, BaseTweenInfo, {
+                ["Size"] = UDim2.fromScale(OriginalSize.X.Scale * 1.1, OriginalSize.Y.Scale * 1.13) --UDim2.fromScale(0.69, 0.09)
+            }):Play()
+            PlaySound("hover")
+        end)
+        SidePlusButton.MouseLeave:Connect(function()
+            TweenService:Create(SidePlusButton, BaseTweenInfo, {
+                ["Size"] = OriginalSize --UDim2.fromScale(0.684, 0.073)
+            }):Play()
+            PlaySound("hoverEnd")
+        end)
+    else
+        local IsBottomBar = SidePlusButton.Parent.Parent.Name == "Bottombar"
+        local PulloutHolder = SidePlusButton.PulloutHolder
+        PulloutHolder.Parent = IsBottomBar and (MenuData.Sidebars.Bottombar.Pullouts or SidePlusButton) or SidePlusButton
+        local PulloutFrame = PulloutHolder.PulloutFrame
+        PulloutFrame.Title.Text = SidePlusButton.Name
+        SidePlusButton.MouseEnter:Connect(function()
+            if SidePlusButton.Button.ImageTransparency <= 0.1 then
+                TweenService:Create(SidePlusButton, BaseTweenInfo, {
+                    ["Size"] = UDim2.fromScale(1.05, IsBottomBar and 1.15 or 0.25)
+                }):Play()
+                if IsBottomBar then
+                    TweenService:Create(PulloutHolder, BaseTweenInfo, {["Position"] = UDim2.fromScale(0.65, 0.85),["Size"] = UDim2.fromScale(0.35, 0.75)}):Play()
+                    TweenService:Create(PulloutFrame.Display, BaseTweenInfo, {["ImageTransparency"] = 0}):Play()
+                    TweenService:Create(PulloutFrame.Title, BaseTweenInfo, {["TextTransparency"] = 0}):Play()
+                else
+                    TweenService:Create(PulloutFrame, BaseTweenInfo, {["Position"] = UDim2.new(0.225, PulloutFrame.Title.AbsoluteSize.X ^ 1.03, 0.5, 0)}):Play()
+                end
+                PlaySound("hover")
+            end
+        end)
+        SidePlusButton.MouseLeave:Connect(function()
+            TweenService:Create(SidePlusButton, BaseTweenInfo, {["Size"] = UDim2.fromScale(1, IsBottomBar and 1 or 0.2)}):Play()
+            if IsBottomBar then
+                TweenService:Create(PulloutHolder, BaseTweenInfo, {["Position"] = UDim2.fromScale(0.65, 1),["Size"] = UDim2.fromScale(0.15, 0.45)}):Play()
+                TweenService:Create(PulloutFrame.Display, BaseTweenInfo, {["ImageTransparency"] = 1}):Play()
+                TweenService:Create(PulloutFrame.Title, BaseTweenInfo, {["TextTransparency"] = 1}):Play()
+            else
+                TweenService:Create(PulloutFrame, BaseTweenInfo, {["Position"] = UDim2.fromScale(0, 0.5)}):Play()
+            end
+            if SidePlusButton.Button.ImageTransparency <= 0.1 then
+                PlaySound("hoverEnd")
+            end
+        end)
+    end
+end
+
+local function UICheck()
+    local Status = SideBar:GetAttribute("WasVisible")
+    SetButtonState(false)
+    if Status then
+        if not NewUIVersion then
+            local LayoutInstance = Buttons:FindFirstChildOfClass("UIListLayout") or Buttons:FindFirstChildOfClass("UIGridLayout")
+            if LayoutInstance then
+                LayoutInstance.VerticalAlignment = Enum.VerticalAlignment.Top
+            end
+        else
+            SideBar:FindFirstChildOfClass("UIPadding").PaddingRight = UDim.new(0.2,0)
+            SideBar:FindFirstChildOfClass("UIPadding").PaddingLeft = UDim.new(0,0)
+            UIScale.Scale = 1
+        end
+        PlusMenu.SettingsContainer.ImageTransparency = 0
+        PlusMenu.SettingsContainer.Contents.ScrollBarImageTransparency = 0
+        if SideBar:IsA("ImageLabel") then
+            SideBar.ImageTransparency = 0
+        end
+        for i,v in PlusMenu.SettingsContainer.Contents:GetChildren() do
+            if v:IsA("ImageLabel") then
+                v.ImageTransparency = 0
+            elseif v:IsA("Frame") then
+                for i,v in v:GetChildren() do
+                    if v:IsA("ImageLabel") or v:IsA("ImageButton") then
+                        v.ImageTransparency = 0
+                    end
+                end
+            end
+        end
+    else
+        if NewUIVersion then
+            MenuData.SidebarMenus["Plus"]["_sidebar"]["MenusHidden"] = false
+            task.delay(0.5,function()
+                MenuData.SidebarMenus["Plus"]["_sidebar"]["MenusHidden"] = false
+            end)
+            SideBar:FindFirstChildOfClass("UIPadding").PaddingRight = UDim.new(0,0)
+            SideBar:FindFirstChildOfClass("UIPadding").PaddingLeft = UDim.new(0.2,0)
+            UIScale.Scale = 1.3
+        end
+        local LayoutInstance = Buttons:FindFirstChildOfClass("UIListLayout") or Buttons:FindFirstChildOfClass("UIGridLayout")
+        if LayoutInstance then
+            LayoutInstance.VerticalAlignment = Enum.VerticalAlignment.Center
+        end
+        PlusMenu.SettingsContainer.ImageTransparency = 0.3
+        PlusMenu.SettingsContainer.Contents.ScrollBarImageTransparency = 0.45
+        if SideBar:IsA("ImageLabel") then
+            SideBar.ImageTransparency = 1
+        end
+        for i,v in PlusMenu.SettingsContainer.Contents:GetChildren() do
+            if v:IsA("ImageLabel") then
+                v.ImageTransparency = 0.4
+            elseif v:IsA("Frame") then
+                for i,v in v:GetChildren() do
+                    if v:IsA("ImageLabel") or v:IsA("ImageButton") then
+                        v.ImageTransparency = 0.3
+                    end
+                end
+            end
+        end
+    end
+    for i,v in SideBar:QueryDescendants(`#Bottom > Frame, #Money , #Bottombar , #{Buttons} > Frame {((not NewUIVersion) and ":not(#Credits)" or "")} :not(#TesterUi)`) do
+        v.Visible = Status
+    end
+    SidePlusButton.Visible = true
+    if not Status then
+        RoundEvent:Fire("Start")
+    else
+        RoundEvent:Fire("End")
+    end
+end
+
+MainUI.ChildAdded:Connect(function(Child)
+    if Child.Name == "AbilityContainer" then
+        if Child:FindFirstChild("Block") and not Child:FindFirstChild("Block"):FindFirstChild("AutoImage") then
+            local AutoImage = Instance.new("ImageLabel")
+            AutoImage.Name = "AutoImage"
+            AutoImage.Interactable = false
+            AutoImage.Parent = Child:FindFirstChild("Block")
+            AutoImage.Image = "rbxassetid://114159864966636"
+            AutoImage.BackgroundTransparency = 1
+            AutoImage.Size = UDim2.fromScale(0.8,0.8)
+            AutoImage.Position = UDim2.fromScale(0.5,0)
+            AutoImage.AnchorPoint = Vector2.new(0.5,0.4)
+            AutoImage.Visible = GetValue("AutoBlock")
+        end
+        SideBar:SetAttribute("WasVisible", false)
+        UICheck()
+    end
+end)
+MainUI.ChildRemoved:Connect(function(Child)
+    if Child.Name == "AbilityContainer" then
+        SideBar:SetAttribute("WasVisible", true)
+        UICheck()
+    end
+end)
+SideBar:GetPropertyChangedSignal("Visible"):Connect(function()
+    SideBar.Visible = true
+end)
+SideBar:SetAttribute("WasVisible",(MainUI:FindFirstChild("AbilityContainer") == nil))
+UICheck()
+SideBar.Visible = true
+
+ColoredPrint("Forsaken plus has loaded successfully","success",Color3.fromRGB(0, 200, 125))
