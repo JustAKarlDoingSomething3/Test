@@ -1529,16 +1529,17 @@ local function CheckTextDistance(Text,TargetRoot,Settings)
     if not Camera or (Text:GetAttribute("Frozen") and not Settings.Instant) then return end
     local Distance = (Camera.CFrame.Position - TargetRoot.Position).Magnitude
     local MinDistance = Settings.MinDistance
-    if Distance > MinDistance and Distance < 1200 and Text.TextTransparency ~= 0 then
-        local Tween = TweenService:Create(Text,TweenInfo.new(Settings.Instant and 0 or 0.1),{TextTransparency = 0,TextStrokeTransparency = 0})
-        Tween.Parent = TargetRoot
-        Tween:Play()
-        Debris:AddItem(Tween,0.2)
-    elseif Distance <= MinDistance or Distance >= 1200 and Text.TextTransparency ~= 1 then
-        local Tween = TweenService:Create(Text,TweenInfo.new(Settings.Instant and 0 or 0.1),{TextTransparency = 1,TextStrokeTransparency = 1})
-        Tween.Parent = TargetRoot
-        Tween:Play()
-        Debris:AddItem(Tween,0.2)
+    -- Direct property sets instead of Tweens every tick (major FPS win)
+    if Distance > MinDistance and Distance < 1200 then
+        if Text.TextTransparency ~= 0 then
+            Text.TextTransparency = 0
+            Text.TextStrokeTransparency = 0
+        end
+    else
+        if Text.TextTransparency ~= 1 then
+            Text.TextTransparency = 1
+            Text.TextStrokeTransparency = 1
+        end
     end
 end
 
@@ -1548,26 +1549,21 @@ local function CheckHighlightDistance(Highlight,TargetRoot,Settings)
     local Distance = (Camera.CFrame.Position - TargetRoot.Position).Magnitude
     local MinDistance = Settings.MinDistance
     local ShouldHide = Distance < MinDistance or Distance > 1200
-    if ShouldHide and Highlight.FillTransparency ~= 1 then
-        local Tween = TweenService:Create(Highlight,TweenInfo.new(Settings.Instant and 0 or 0.1),{
-            FillTransparency = 1,
-            OutlineTransparency = 1
-        })
-        Tween.Parent = Highlight
-        Tween:Play()
-        Debris:AddItem(Tween,0.2)
+    -- Direct property sets instead of creating Tween objects every tick
+    if ShouldHide then
+        if Highlight.FillTransparency ~= 1 then
+            Highlight.FillTransparency = 1
+            Highlight.OutlineTransparency = 1
+        end
         return
     end
-    if not ShouldHide and Distance >= MinDistance and Distance < 1200 then
+    if Distance >= MinDistance and Distance < 1200 then
         local TransparencyAmount = math.clamp(1 - math.clamp((Distance - MinDistance) / math.max(Settings.MaxDistance - MinDistance, 0.001),0,1),0.45,1)
-        if math.abs(Highlight.FillTransparency - TransparencyAmount) > 0 then
-            local Tween = TweenService:Create(Highlight,TweenInfo.new(Settings.Instant and 0 or 0.1),{
-                FillTransparency = math.clamp(TransparencyAmount + 0.05,0,1),
-                OutlineTransparency = TransparencyAmount <= 0.95 and TransparencyAmount - 0.05 or TransparencyAmount
-            })
-            Tween.Parent = Highlight
-            Tween:Play()
-            Debris:AddItem(Tween,0.2)
+        local NewFill = math.clamp(TransparencyAmount + 0.05,0,1)
+        local NewOutline = TransparencyAmount <= 0.95 and TransparencyAmount - 0.05 or TransparencyAmount
+        if math.abs(Highlight.FillTransparency - NewFill) > 0.02 then
+            Highlight.FillTransparency = NewFill
+            Highlight.OutlineTransparency = NewOutline
         end
     end
 end
@@ -3076,62 +3072,71 @@ end or function(ProximityPrompt)
 end
 
 local RNG = Random.new()
+-- Cached once so Legit-Blatant rate writes are not spammed every tick
+local LastLegitBlatantApply = 0
+local WasESPEnabled = false
+
 ThreadManager:Start("FeatureHandler", function()
     local ComputerInstance = GetValue("Computer",true)
     if ComputerInstance then
         ComputerInstance.Value = UserInputService.KeyboardEnabled
     end
-    task.spawn(function()
-        if LocalRoot and not IsFixingGenerator and (GetValue("AutoGeneratorPuzzle")) and GameMap then
-            for i,Object in GameMap:QueryDescendants("Model#Generator:has(#Main)") do
-                if LocalRoot and LocalRoot.Anchored ~= true and (Object:FindFirstChild("Main").Position - LocalRoot.Position).Magnitude < 6.7 then
-                    task.spawn(function()
-                        IsFixingGenerator = true
-                        local Remotes = Object:FindFirstChild("Remotes")
-                        local Progress = Remotes and Object:FindFirstChild("Progress")
-                        local RemoteEvent = Progress and Remotes:FindFirstChildOfClass("RemoteEvent")
-                        if RemoteEvent and SpeedMultipliers:FindFirstChild("FixingGenerator") then
-                            while true do
-                                if not IsFixingGenerator or not LocalCharacter or not SpeedMultipliers or not SpeedMultipliers:FindFirstChild("FixingGenerator") or not (GetValue("AutoGeneratorPuzzle")) then
-                                    break
-                                end
-                                local IsNear = IsPlayersNear(32)
-                                local GenCD = (not IsNear and GetValue("SpeedUpCooldown") and GetValue("GeneratorCooldown") > 2 and (GetValue("GeneratorCooldown",true):GetAttribute("MinValue"))) or GetValue("GeneratorCooldown")
-                                task.wait(RNG:NextNumber(GenCD - 0.1 * GenCD,GenCD + 0.1 * GenCD))
-                                if not IsFixingGenerator or not LocalCharacter or not SpeedMultipliers or not SpeedMultipliers:FindFirstChild("FixingGenerator") or not (GetValue("AutoGeneratorPuzzle")) then
-                                    break
-                                end
-                                RemoteEvent:FireServer()
-                                PlaySound("puzzleDone", {["Parent"] = Object:FindFirstChild("Main")})
+
+    -- Auto Generator (only when enabled — avoid heavy QueryDescendants otherwise)
+    if LocalRoot and not IsFixingGenerator and GetValue("AutoGeneratorPuzzle") and GameMap then
+        for i,Object in GameMap:QueryDescendants("Model#Generator:has(#Main)") do
+            local MainPart = Object:FindFirstChild("Main")
+            if MainPart and LocalRoot.Anchored ~= true and (MainPart.Position - LocalRoot.Position).Magnitude < 6.7 then
+                task.spawn(function()
+                    IsFixingGenerator = true
+                    local Remotes = Object:FindFirstChild("Remotes")
+                    local Progress = Remotes and Object:FindFirstChild("Progress")
+                    local RemoteEvent = Progress and Remotes:FindFirstChildOfClass("RemoteEvent")
+                    if RemoteEvent and SpeedMultipliers and SpeedMultipliers:FindFirstChild("FixingGenerator") then
+                        while true do
+                            if not IsFixingGenerator or not LocalCharacter or not SpeedMultipliers or not SpeedMultipliers:FindFirstChild("FixingGenerator") or not GetValue("AutoGeneratorPuzzle") then
+                                break
                             end
+                            local IsNear = IsPlayersNear(32)
+                            local GenCD = (not IsNear and GetValue("SpeedUpCooldown") and GetValue("GeneratorCooldown") > 2 and (GetValue("GeneratorCooldown",true):GetAttribute("MinValue"))) or GetValue("GeneratorCooldown")
+                            task.wait(RNG:NextNumber(GenCD - 0.1 * GenCD,GenCD + 0.1 * GenCD))
+                            if not IsFixingGenerator or not LocalCharacter or not SpeedMultipliers or not SpeedMultipliers:FindFirstChild("FixingGenerator") or not GetValue("AutoGeneratorPuzzle") then
+                                break
+                            end
+                            RemoteEvent:FireServer()
+                            PlaySound("puzzleDone", {["Parent"] = Object:FindFirstChild("Main")})
                         end
-                        IsFixingGenerator = false
-                    end)
-                    break
-                end
+                    end
+                    IsFixingGenerator = false
+                end)
+                break
             end
         end
-    end)
+    end
 
     local StaminaPreset = GetValue("StaminaPreset")
     if StaminaPreset ~= "Original" and MainModule and MainModule.MaxStamina then
         if StaminaPreset == "Infinite" then
             rawset(MainModule, "Stamina", MainModule.MaxStamina)
         elseif StaminaPreset == "Legit-Blatant" then
-            -- Legit-Blatant: custom loss / regain rates requested by user
-            if MainModule.StaminaLoss ~= nil then
-                rawset(MainModule, "StaminaLoss", 6.7)
+            -- Apply rate properties at most ~twice a second (not every 0.1s)
+            local Now = os.clock()
+            if Now - LastLegitBlatantApply > 0.45 then
+                LastLegitBlatantApply = Now
+                if MainModule.StaminaLoss ~= nil then
+                    rawset(MainModule, "StaminaLoss", 6.9)
+                end
+                if MainModule.StaminaRegain ~= nil then
+                    rawset(MainModule, "StaminaRegain", 23)
+                end
+                if MainModule.LossRate ~= nil then
+                    rawset(MainModule, "LossRate", 6.9)
+                end
+                if MainModule.RegainRate ~= nil then
+                    rawset(MainModule, "RegainRate", 23)
+                end
             end
-            if MainModule.StaminaRegain ~= nil then
-                rawset(MainModule, "StaminaRegain", 23)
-            end
-            if MainModule.LossRate ~= nil then
-                rawset(MainModule, "LossRate", 6.7)
-            end
-            if MainModule.RegainRate ~= nil then
-                rawset(MainModule, "RegainRate", 23)
-            end
-            -- Also gently assist regain so the preset feels consistent even if property names differ
+            -- Gentle regain assist (light work, safe every tick)
             local MaxStamina = MainModule.MaxStamina
             if MainModule.Stamina and MainModule.Stamina < MaxStamina then
                 rawset(MainModule, "Stamina", math.min(MainModule.Stamina + (23 * 0.016), MaxStamina))
@@ -3143,53 +3148,124 @@ ThreadManager:Start("FeatureHandler", function()
             end
         end
     end
-    for i,v in PlayersFolder:QueryDescendants("#Killers > Instance,#Survivors > Instance") do
-        task.spawn(function()
+
+    -- ===== ESP / Items / Generators (skip ALL of this when master ESP is off) =====
+    local ESPEnabled = GetValue("ESP")
+    local AutoPickupEnabled = GetValue("AutoPickup")
+    local ShowTextEnabled = GetValue("ShowText")
+
+    -- One-shot cleanup when ESP is toggled OFF so highlights/text don't stick
+    if WasESPEnabled and not ESPEnabled then
+        if PlayersFolder then
+            for i,v in PlayersFolder:QueryDescendants("#Killers > Instance,#Survivors > Instance") do
+                CreateDynamicHighlight(false, v)
+                CreateText(false, v)
+            end
+        end
+        if InGame and GameMap then
+            local Tools = InGame:QueryDescendants("#Map > Tool")
+            local DroppedTools = InGame.Parent:QueryDescendants("Folder > Tool")
+            for i,v in table.move(Tools,1,#Tools,#DroppedTools+1,DroppedTools) do
+                CreateDynamicHighlight(false, v)
+                CreateText(false, v)
+            end
+            for i,v in GameMap:QueryDescendants("Model#Generator:has(#Main)") do
+                CreateDynamicHighlight(false, v)
+                CreateText(false, v)
+            end
+        end
+    end
+    WasESPEnabled = ESPEnabled and true or false
+
+    if PlayersFolder and (ESPEnabled or AutoPickupEnabled) then
+        -- Cache color lookups once per tick
+        local KillersESPOn = ESPEnabled and GetValue("KillersESP")
+        local SurvivorsESPOn = ESPEnabled and GetValue("SurvivorsESP")
+        local KillersColor = ColorPresets[GetValue("KillersColor")] or ColorPresets.Red
+        local SurvivorsColor = ColorPresets[GetValue("SurvivorsColor")] or ColorPresets.Green
+
+        for i,v in PlayersFolder:QueryDescendants("#Killers > Instance,#Survivors > Instance") do
             local Player = v ~= LocalPlayer.Character and Players:GetPlayerFromCharacter(v)
-            if Player and v:FindFirstChildOfClass("Humanoid") and v:FindFirstChildOfClass("Humanoid").Health > 0 and MainUI.Enabled == true then
+            local Humanoid = v:FindFirstChildOfClass("Humanoid")
+            if Player and Humanoid and Humanoid.Health > 0 and MainUI.Enabled == true then
                 local FolderName = v.Parent.Name
-                local FeatureValue, ColorValue, TargetRoot = GetValue(FolderName.."ESP"), ColorPresets[GetValue(FolderName.."Color")], v:FindFirstChild("HumanoidRootPart")
+                local FeatureValue = (FolderName == "Killers" and KillersESPOn) or (FolderName == "Survivors" and SurvivorsESPOn) or false
+                local ColorValue = FolderName == "Killers" and KillersColor or SurvivorsColor
+                local TargetRoot = v:FindFirstChild("HumanoidRootPart")
                 CreateDynamicHighlight(FeatureValue, v, TargetRoot, {MaxDistance = 100,MinDistance = 10,Color = ColorValue })
-                CreateText(FeatureValue, v, TargetRoot, {MinDistance = 25,Text = Player.Name,Color = ColorValue})
+                if ShowTextEnabled then
+                    CreateText(FeatureValue, v, TargetRoot, {MinDistance = 25,Text = Player.Name,Color = ColorValue})
+                else
+                    CreateText(false, v)
+                end
             else
                 CreateDynamicHighlight(false, v)
                 CreateText(false, v)
             end
-        end)
+        end
     end
+
     if InGame and GameMap then
-        task.spawn(function()
+        local ItemsESPOn = ESPEnabled and GetValue("ItemsESP")
+        local ItemsColor = ColorPresets[GetValue("ItemsColor")] or ColorPresets.Gold
+        local GeneratorsESPOn = ESPEnabled and GetValue("GeneratorsESP")
+        local GeneratorsColor = ColorPresets[GetValue("GeneratorsColor")] or ColorPresets.Cyan
+        local GeneratorsCheckOn = GetValue("GeneratorsCheck")
+
+        -- Items / AutoPickup
+        if ItemsESPOn or AutoPickupEnabled then
             local Tools = InGame:QueryDescendants("#Map > Tool")
             local DroppedTools = InGame.Parent:QueryDescendants("Folder > Tool")
             for i,v in table.move(Tools,1,#Tools,#DroppedTools+1,DroppedTools) do
-                local FeatureValue, ColorValue, TargetRoot = GetValue("ItemsESP"), ColorPresets[GetValue("ItemsColor")], v:FindFirstChildWhichIsA("BasePart")
-                CreateDynamicHighlight(FeatureValue, v, TargetRoot, {MaxDistance = 100,MinDistance = 12,Color = ColorValue})
-                CreateText(FeatureValue, v, TargetRoot, {MinDistance = 25,Text = v.Name, Color = ColorValue})
-                if v:IsA("Tool") and not LocalCharacter:FindFirstChild(v.Name) and not LocalPlayer:FindFirstChildOfClass("Backpack"):FindFirstChild(v.Name) and not v:GetAttribute("JustDropped") and GetValue("AutoPickup") then
-                    local Param = OverlapParams.new()
-                    Param.FilterType = Enum.RaycastFilterType.Include
-                    Param.FilterDescendantsInstances = {v}
-                    local Result = workspace:GetPartBoundsInRadius(LocalRoot.Position, 4.5, Param)
-                    if LocalRoot and #Result > 0 then
-                        fireprompt(v:FindFirstChildWhichIsA("ProximityPrompt",true))
+                local TargetRoot = v:FindFirstChildWhichIsA("BasePart")
+                if ItemsESPOn then
+                    CreateDynamicHighlight(true, v, TargetRoot, {MaxDistance = 100,MinDistance = 12,Color = ItemsColor})
+                    if ShowTextEnabled then
+                        CreateText(true, v, TargetRoot, {MinDistance = 25,Text = v.Name, Color = ItemsColor})
+                    else
+                        CreateText(false, v)
+                    end
+                else
+                    CreateDynamicHighlight(false, v)
+                    CreateText(false, v)
+                end
+                if AutoPickupEnabled and LocalRoot and LocalCharacter and v:IsA("Tool") and not LocalCharacter:FindFirstChild(v.Name) then
+                    local Backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
+                    if Backpack and not Backpack:FindFirstChild(v.Name) and not v:GetAttribute("JustDropped") then
+                        local Param = OverlapParams.new()
+                        Param.FilterType = Enum.RaycastFilterType.Include
+                        Param.FilterDescendantsInstances = {v}
+                        local Result = workspace:GetPartBoundsInRadius(LocalRoot.Position, 4.5, Param)
+                        if #Result > 0 then
+                            fireprompt(v:FindFirstChildWhichIsA("ProximityPrompt",true))
+                        end
                     end
                 end
             end
-        end)
-        for i,v in GameMap:QueryDescendants("Model#Generator:has(#Main)") do
-            task.spawn(function()
-                if (GetValue("GeneratorsCheck")) == true and v:FindFirstChild("Progress") and v:FindFirstChild("Progress").Value >= 100 then
+        end
+
+        -- Generators ESP only when needed
+        if GeneratorsESPOn then
+            for i,v in GameMap:QueryDescendants("Model#Generator:has(#Main)") do
+                local Progress = v:FindFirstChild("Progress")
+                if GeneratorsCheckOn and Progress and Progress.Value >= 100 then
                     CreateDynamicHighlight(false, v)
                     CreateText(false, v)
-                elseif v:FindFirstChild("Progress") then
-                    local FeatureValue, ColorValue, TargetRoot = GetValue("GeneratorsESP"), ColorPresets[GetValue("GeneratorsColor")], v:FindFirstChild("Main") or v:WaitForChild("Main")
-                    CreateDynamicHighlight(FeatureValue, v, TargetRoot, { MaxDistance = 100,MinDistance = 12,Color = ColorValue})
-                    CreateText(FeatureValue, v, TargetRoot, { MinDistance = 25,Text = v.Name,Color = ColorValue})
+                elseif Progress then
+                    local TargetRoot = v:FindFirstChild("Main")
+                    if TargetRoot then
+                        CreateDynamicHighlight(true, v, TargetRoot, { MaxDistance = 100,MinDistance = 12,Color = GeneratorsColor})
+                        if ShowTextEnabled then
+                            CreateText(true, v, TargetRoot, { MinDistance = 25,Text = v.Name,Color = GeneratorsColor})
+                        else
+                            CreateText(false, v)
+                        end
+                    end
                 end
-            end)
+            end
         end
     end
-end,0.1)
+end,0.15)
 
 local LoadUI = Instance.new("TextButton")
 local Folder = Instance.new("Folder")
