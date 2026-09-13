@@ -433,7 +433,7 @@ local FeatureLoadout; FeatureLoadout = {
             ["DefaultInstanceValue"] = "Original",
             ["ExtraData"] = {
                 ["Requirement"] = "require",
-                ["Options"] = "Original|Realistic|Semi-Realistic|Infinite|Legit-Blatant"
+                ["Options"] = "Original|Realistic|Semi-Realistic|Infinite"
             },
             ["ScriptFunction"] = function(self, Value) end
         },
@@ -1529,17 +1529,16 @@ local function CheckTextDistance(Text,TargetRoot,Settings)
     if not Camera or (Text:GetAttribute("Frozen") and not Settings.Instant) then return end
     local Distance = (Camera.CFrame.Position - TargetRoot.Position).Magnitude
     local MinDistance = Settings.MinDistance
-    -- Direct property sets instead of Tweens every tick (major FPS win)
-    if Distance > MinDistance and Distance < 1200 then
-        if Text.TextTransparency ~= 0 then
-            Text.TextTransparency = 0
-            Text.TextStrokeTransparency = 0
-        end
-    else
-        if Text.TextTransparency ~= 1 then
-            Text.TextTransparency = 1
-            Text.TextStrokeTransparency = 1
-        end
+    if Distance > MinDistance and Distance < 1200 and Text.TextTransparency ~= 0 then
+        local Tween = TweenService:Create(Text,TweenInfo.new(Settings.Instant and 0 or 0.1),{TextTransparency = 0,TextStrokeTransparency = 0})
+        Tween.Parent = TargetRoot
+        Tween:Play()
+        Debris:AddItem(Tween,0.2)
+    elseif Distance <= MinDistance or Distance >= 1200 and Text.TextTransparency ~= 1 then
+        local Tween = TweenService:Create(Text,TweenInfo.new(Settings.Instant and 0 or 0.1),{TextTransparency = 1,TextStrokeTransparency = 1})
+        Tween.Parent = TargetRoot
+        Tween:Play()
+        Debris:AddItem(Tween,0.2)
     end
 end
 
@@ -1549,21 +1548,26 @@ local function CheckHighlightDistance(Highlight,TargetRoot,Settings)
     local Distance = (Camera.CFrame.Position - TargetRoot.Position).Magnitude
     local MinDistance = Settings.MinDistance
     local ShouldHide = Distance < MinDistance or Distance > 1200
-    -- Direct property sets instead of creating Tween objects every tick
-    if ShouldHide then
-        if Highlight.FillTransparency ~= 1 then
-            Highlight.FillTransparency = 1
-            Highlight.OutlineTransparency = 1
-        end
+    if ShouldHide and Highlight.FillTransparency ~= 1 then
+        local Tween = TweenService:Create(Highlight,TweenInfo.new(Settings.Instant and 0 or 0.1),{
+            FillTransparency = 1,
+            OutlineTransparency = 1
+        })
+        Tween.Parent = Highlight
+        Tween:Play()
+        Debris:AddItem(Tween,0.2)
         return
     end
-    if Distance >= MinDistance and Distance < 1200 then
+    if not ShouldHide and Distance >= MinDistance and Distance < 1200 then
         local TransparencyAmount = math.clamp(1 - math.clamp((Distance - MinDistance) / math.max(Settings.MaxDistance - MinDistance, 0.001),0,1),0.45,1)
-        local NewFill = math.clamp(TransparencyAmount + 0.05,0,1)
-        local NewOutline = TransparencyAmount <= 0.95 and TransparencyAmount - 0.05 or TransparencyAmount
-        if math.abs(Highlight.FillTransparency - NewFill) > 0.02 then
-            Highlight.FillTransparency = NewFill
-            Highlight.OutlineTransparency = NewOutline
+        if math.abs(Highlight.FillTransparency - TransparencyAmount) > 0 then
+            local Tween = TweenService:Create(Highlight,TweenInfo.new(Settings.Instant and 0 or 0.1),{
+                FillTransparency = math.clamp(TransparencyAmount + 0.05,0,1),
+                OutlineTransparency = TransparencyAmount <= 0.95 and TransparencyAmount - 0.05 or TransparencyAmount
+            })
+            Tween.Parent = Highlight
+            Tween:Play()
+            Debris:AddItem(Tween,0.2)
         end
     end
 end
@@ -2944,23 +2948,31 @@ TeleportSound:Play()
 
 local BlockableAttacks = {"slash","stab","attack","punch","behead","swing","golemslash"}
 
--- Extra Slasher skins whose animation names are not one of the generic
--- attack names above.
-local BlockableKillerNames = {
-    ["vanity"] = true,
-    ["vanity slasher"] = true,
-    ["mystic"] = true,
-    ["mystic slasher"] = true,
-    ["combat initiation"] = true,
-    ["combat initiation slasher"] = true,
-}
-
 local BlockableAnimationIds = {
+    -- Shared Slash animations used by the characters
+    ["121778755277919"] = true,
+    ["87347358451124"] = true,
+
     -- Vanity / Combat Initiation Slasher attack
     ["126830014841198"] = true,
 }
 
+-- Combat Initiation movement animations. These must never trigger Auto Block.
+local IgnoredAnimationIds = {
+    ["1122360277994023"] = true, -- walk
+    ["138027761135655"] = true,  -- run / stop
+    ["113833842285362"] = true,  -- idle
+}
+
 local function IsBlockableAttack(AnimType, KillerName, AnimationId, ModelName)
+    -- Ignore Combat Initiation locomotion animations before any other test.
+    if type(AnimationId) == "string" then
+        local Id = AnimationId:match("%d+")
+        if Id and IgnoredAnimationIds[Id] then
+            return false
+        end
+    end
+
     -- Standard attack animation names
     if type(AnimType) == "string" then
         local Name = AnimType:lower()
@@ -2977,18 +2989,11 @@ local function IsBlockableAttack(AnimType, KillerName, AnimationId, ModelName)
         end
     end
 
-    -- Check both the animation's character name and the actual killer model name
-    for _, Name in ipairs({KillerName, ModelName}) do
-        if type(Name) == "string" then
-            Name = Name:lower()
-            if BlockableKillerNames[Name]
-                or Name:find("vanity", 1, true)
-                or Name:find("mystic", 1, true)
-                or Name:find("combat initiation", 1, true) then
-                return true
-            end
-        end
-    end
+    -- Do NOT use killer/model names to classify attacks.
+    -- Combat Initiation running, stopping, and idle animations can use
+    -- the same character/model name, so name-based detection causes
+    -- wasted blocks. Only recognized attack names and explicit IDs
+    -- are allowed to trigger Auto Block.
 
     return false
 end
@@ -2997,6 +3002,37 @@ local CustomHitboxes = {
     ["golemslash"] = {
         Size = Vector3.new(6, 2, 7),
         Offset = CFrame.new(0,0,-5.5)
+    },
+
+    -- Killer-specific Auto Block detection sizes.
+    -- The detection code adds Vector3.new(3, 3, 3).
+    ["c00lkidd"] = {
+        Size = Vector3.new(2.75, 2.75, 2.75), -- 5.75 studs
+        Offset = CFrame.new(0,0,-3.5)
+    },
+    ["slasher"] = {
+        Size = Vector3.new(5.25, 5.25, 5.25), -- 8.25 studs
+        Offset = CFrame.new(0,0,-3.5)
+    },
+    ["johndoe"] = {
+        Size = Vector3.new(5.25, 5.25, 5.25), -- 8.25 studs
+        Offset = CFrame.new(0,0,-3.5)
+    },
+    ["noli"] = {
+        Size = Vector3.new(5.75, 5.75, 5.75), -- 8.75 studs
+        Offset = CFrame.new(0,0,-3.5)
+    },
+    ["sixer"] = {
+        Size = Vector3.new(5, 5, 5), -- 8.0 studs
+        Offset = CFrame.new(0,0,-3.5)
+    },
+    ["nosferatu"] = {
+        Size = Vector3.new(6.25, 6.25, 6.25), -- 9.25 studs
+        Offset = CFrame.new(0,0,-3.5)
+    },
+    ["azure"] = {
+        Size = Vector3.new(6.25, 6.25, 6.25), -- 9.25 studs
+        Offset = CFrame.new(0,0,-3.5)
     },
 }
 local FireSignal = GetFunction(firesignal,FireSignal)
@@ -3014,7 +3050,18 @@ local function HandleKiller(Killer)
             if GetValue("AutoBlock") and Players:GetPlayerFromCharacter(Killer) then
                 local AnimationId = Track.Animation and Track.Animation.AnimationId
                 local AnimType,KillerName = GetAnimationType(AnimationId)
-                if IsBlockableAttack(AnimType, KillerName, AnimationId, Killer.Name) and LocalCharacter and LocalCharacter:FindFirstChild("QueryHitbox") and LocalCharacter.Parent == SurvivorsFolder and MainUI:FindFirstChild("AbilityContainer") and MainUI:FindFirstChild("AbilityContainer"):FindFirstChild("Block") then
+                local IsKillerTest = LocalCharacter == Killer
+                local HasBlockButton = MainUI
+                    and MainUI:FindFirstChild("AbilityContainer")
+                    and MainUI:FindFirstChild("AbilityContainer"):FindFirstChild("Block")
+
+                -- In killer test mode, create the visual hitbox even though
+                -- the killer normally has no Block button in the UI.
+                if IsBlockableAttack(AnimType, KillerName, AnimationId, Killer.Name)
+                    and LocalCharacter
+                    and LocalCharacter:FindFirstChild("QueryHitbox")
+                    and (LocalCharacter.Parent == SurvivorsFolder or IsKillerTest)
+                    and (IsKillerTest or HasBlockButton) then
                     local AnimTypeName = type(AnimType) == "string" and AnimType:lower() or ""
                     local KillerModelName = type(Killer.Name) == "string" and Killer.Name:lower() or ""
                     local CustomHitbox = CustomHitboxes[AnimTypeName] or CustomHitboxes[KillerModelName]
@@ -3025,19 +3072,26 @@ local function HandleKiller(Killer)
                         Part.Color = BrickColor.new("Really black").Color
                         local BaseSize = CustomHitbox and CustomHitbox["Size"] or Vector3.new(5.2, 6, 5.65)
                         local BaseOffset = CustomHitbox and CustomHitbox["Offset"] or CFrame.new(0,0,-3.5)
-                        Part.Size = BaseSize + Vector3.new(2, 0, 2.5)
+                        Part.Size = BaseSize + Vector3.new(3, 3, 3)
                         Part.CFrame = QueryHitbox.CFrame * BaseOffset * CFrame.new(0, 0, -1.25)
                         Part.CanCollide = false
                         Part.Anchored = true
                         Part.CastShadow = false
                         Part.Material = Enum.Material.ForceField
-                        Part.Transparency = ShowHitboxesSetting.Value and 0.1 or 1
+                        Part.Transparency = (IsKillerTest or (ShowHitboxesSetting and ShowHitboxesSetting.Value)) and 0.1 or 1
                         Part.Parent = Hitboxes
                         Debris:AddItem(Part,0.4)
                         local Hitbox = workspace:GetPartsInPart(Part,SelfParams)
                         if #Hitbox > 0 then
-                            if FireSignal and MainUI:FindFirstChild("AbilityContainer"):FindFirstChild("Block") then
-                                FireSignal(MainUI.AbilityContainer.Block.MouseButton1Click)
+                            -- When testing as the killer, only show the hitbox.
+                            -- Do not activate the Block button on the killer's side.
+                            if not IsKillerTest then
+                                if FireSignal and HasBlockButton then
+                                    FireSignal(MainUI.AbilityContainer.Block.MouseButton1Click)
+                                    break
+                                end
+                            else
+                                -- Visual-only test mode while playing killer.
                                 break
                             end
                             if GetValue("OfficialGame") then
@@ -3072,75 +3126,47 @@ end or function(ProximityPrompt)
 end
 
 local RNG = Random.new()
--- Cached once so Legit-Blatant rate writes are not spammed every tick
-local LastLegitBlatantApply = 0
-local WasESPEnabled = false
-
 ThreadManager:Start("FeatureHandler", function()
     local ComputerInstance = GetValue("Computer",true)
     if ComputerInstance then
         ComputerInstance.Value = UserInputService.KeyboardEnabled
     end
-
-    -- Auto Generator (only when enabled — avoid heavy QueryDescendants otherwise)
-    if LocalRoot and not IsFixingGenerator and GetValue("AutoGeneratorPuzzle") and GameMap then
-        for i,Object in GameMap:QueryDescendants("Model#Generator:has(#Main)") do
-            local MainPart = Object:FindFirstChild("Main")
-            if MainPart and LocalRoot.Anchored ~= true and (MainPart.Position - LocalRoot.Position).Magnitude < 6.7 then
-                task.spawn(function()
-                    IsFixingGenerator = true
-                    local Remotes = Object:FindFirstChild("Remotes")
-                    local Progress = Remotes and Object:FindFirstChild("Progress")
-                    local RemoteEvent = Progress and Remotes:FindFirstChildOfClass("RemoteEvent")
-                    if RemoteEvent and SpeedMultipliers and SpeedMultipliers:FindFirstChild("FixingGenerator") then
-                        while true do
-                            if not IsFixingGenerator or not LocalCharacter or not SpeedMultipliers or not SpeedMultipliers:FindFirstChild("FixingGenerator") or not GetValue("AutoGeneratorPuzzle") then
-                                break
+    task.spawn(function()
+        if LocalRoot and not IsFixingGenerator and (GetValue("AutoGeneratorPuzzle")) and GameMap then
+            for i,Object in GameMap:QueryDescendants("Model#Generator:has(#Main)") do
+                if LocalRoot and LocalRoot.Anchored ~= true and (Object:FindFirstChild("Main").Position - LocalRoot.Position).Magnitude < 6.7 then
+                    task.spawn(function()
+                        IsFixingGenerator = true
+                        local Remotes = Object:FindFirstChild("Remotes")
+                        local Progress = Remotes and Object:FindFirstChild("Progress")
+                        local RemoteEvent = Progress and Remotes:FindFirstChildOfClass("RemoteEvent")
+                        if RemoteEvent and SpeedMultipliers:FindFirstChild("FixingGenerator") then
+                            while true do
+                                if not IsFixingGenerator or not LocalCharacter or not SpeedMultipliers or not SpeedMultipliers:FindFirstChild("FixingGenerator") or not (GetValue("AutoGeneratorPuzzle")) then
+                                    break
+                                end
+                                local IsNear = IsPlayersNear(32)
+                                local GenCD = (not IsNear and GetValue("SpeedUpCooldown") and GetValue("GeneratorCooldown") > 2 and (GetValue("GeneratorCooldown",true):GetAttribute("MinValue"))) or GetValue("GeneratorCooldown")
+                                task.wait(RNG:NextNumber(GenCD - 0.1 * GenCD,GenCD + 0.1 * GenCD))
+                                if not IsFixingGenerator or not LocalCharacter or not SpeedMultipliers or not SpeedMultipliers:FindFirstChild("FixingGenerator") or not (GetValue("AutoGeneratorPuzzle")) then
+                                    break
+                                end
+                                RemoteEvent:FireServer()
+                                PlaySound("puzzleDone", {["Parent"] = Object:FindFirstChild("Main")})
                             end
-                            local IsNear = IsPlayersNear(32)
-                            local GenCD = (not IsNear and GetValue("SpeedUpCooldown") and GetValue("GeneratorCooldown") > 2 and (GetValue("GeneratorCooldown",true):GetAttribute("MinValue"))) or GetValue("GeneratorCooldown")
-                            task.wait(RNG:NextNumber(GenCD - 0.1 * GenCD,GenCD + 0.1 * GenCD))
-                            if not IsFixingGenerator or not LocalCharacter or not SpeedMultipliers or not SpeedMultipliers:FindFirstChild("FixingGenerator") or not GetValue("AutoGeneratorPuzzle") then
-                                break
-                            end
-                            RemoteEvent:FireServer()
-                            PlaySound("puzzleDone", {["Parent"] = Object:FindFirstChild("Main")})
                         end
-                    end
-                    IsFixingGenerator = false
-                end)
-                break
+                        IsFixingGenerator = false
+                    end)
+                    break
+                end
             end
         end
-    end
+    end)
 
     local StaminaPreset = GetValue("StaminaPreset")
     if StaminaPreset ~= "Original" and MainModule and MainModule.MaxStamina then
         if StaminaPreset == "Infinite" then
             rawset(MainModule, "Stamina", MainModule.MaxStamina)
-        elseif StaminaPreset == "Legit-Blatant" then
-            -- Apply rate properties at most ~twice a second (not every 0.1s)
-            local Now = os.clock()
-            if Now - LastLegitBlatantApply > 0.45 then
-                LastLegitBlatantApply = Now
-                if MainModule.StaminaLoss ~= nil then
-                    rawset(MainModule, "StaminaLoss", 6.9)
-                end
-                if MainModule.StaminaRegain ~= nil then
-                    rawset(MainModule, "StaminaRegain", 23)
-                end
-                if MainModule.LossRate ~= nil then
-                    rawset(MainModule, "LossRate", 6.9)
-                end
-                if MainModule.RegainRate ~= nil then
-                    rawset(MainModule, "RegainRate", 23)
-                end
-            end
-            -- Gentle regain assist (light work, safe every tick)
-            local MaxStamina = MainModule.MaxStamina
-            if MainModule.Stamina and MainModule.Stamina < MaxStamina then
-                rawset(MainModule, "Stamina", math.min(MainModule.Stamina + (23 * 0.016), MaxStamina))
-            end
         else
             local MaxStamina = MainModule.MaxStamina
             if MainModule.Stamina < MaxStamina * 0.8 then
@@ -3148,124 +3174,53 @@ ThreadManager:Start("FeatureHandler", function()
             end
         end
     end
-
-    -- ===== ESP / Items / Generators (skip ALL of this when master ESP is off) =====
-    local ESPEnabled = GetValue("ESP")
-    local AutoPickupEnabled = GetValue("AutoPickup")
-    local ShowTextEnabled = GetValue("ShowText")
-
-    -- One-shot cleanup when ESP is toggled OFF so highlights/text don't stick
-    if WasESPEnabled and not ESPEnabled then
-        if PlayersFolder then
-            for i,v in PlayersFolder:QueryDescendants("#Killers > Instance,#Survivors > Instance") do
-                CreateDynamicHighlight(false, v)
-                CreateText(false, v)
-            end
-        end
-        if InGame and GameMap then
-            local Tools = InGame:QueryDescendants("#Map > Tool")
-            local DroppedTools = InGame.Parent:QueryDescendants("Folder > Tool")
-            for i,v in table.move(Tools,1,#Tools,#DroppedTools+1,DroppedTools) do
-                CreateDynamicHighlight(false, v)
-                CreateText(false, v)
-            end
-            for i,v in GameMap:QueryDescendants("Model#Generator:has(#Main)") do
-                CreateDynamicHighlight(false, v)
-                CreateText(false, v)
-            end
-        end
-    end
-    WasESPEnabled = ESPEnabled and true or false
-
-    if PlayersFolder and (ESPEnabled or AutoPickupEnabled) then
-        -- Cache color lookups once per tick
-        local KillersESPOn = ESPEnabled and GetValue("KillersESP")
-        local SurvivorsESPOn = ESPEnabled and GetValue("SurvivorsESP")
-        local KillersColor = ColorPresets[GetValue("KillersColor")] or ColorPresets.Red
-        local SurvivorsColor = ColorPresets[GetValue("SurvivorsColor")] or ColorPresets.Green
-
-        for i,v in PlayersFolder:QueryDescendants("#Killers > Instance,#Survivors > Instance") do
+    for i,v in PlayersFolder:QueryDescendants("#Killers > Instance,#Survivors > Instance") do
+        task.spawn(function()
             local Player = v ~= LocalPlayer.Character and Players:GetPlayerFromCharacter(v)
-            local Humanoid = v:FindFirstChildOfClass("Humanoid")
-            if Player and Humanoid and Humanoid.Health > 0 and MainUI.Enabled == true then
+            if Player and v:FindFirstChildOfClass("Humanoid") and v:FindFirstChildOfClass("Humanoid").Health > 0 and MainUI.Enabled == true then
                 local FolderName = v.Parent.Name
-                local FeatureValue = (FolderName == "Killers" and KillersESPOn) or (FolderName == "Survivors" and SurvivorsESPOn) or false
-                local ColorValue = FolderName == "Killers" and KillersColor or SurvivorsColor
-                local TargetRoot = v:FindFirstChild("HumanoidRootPart")
+                local FeatureValue, ColorValue, TargetRoot = GetValue(FolderName.."ESP"), ColorPresets[GetValue(FolderName.."Color")], v:FindFirstChild("HumanoidRootPart")
                 CreateDynamicHighlight(FeatureValue, v, TargetRoot, {MaxDistance = 100,MinDistance = 10,Color = ColorValue })
-                if ShowTextEnabled then
-                    CreateText(FeatureValue, v, TargetRoot, {MinDistance = 25,Text = Player.Name,Color = ColorValue})
-                else
-                    CreateText(false, v)
-                end
+                CreateText(FeatureValue, v, TargetRoot, {MinDistance = 25,Text = Player.Name,Color = ColorValue})
             else
                 CreateDynamicHighlight(false, v)
                 CreateText(false, v)
             end
-        end
+        end)
     end
-
     if InGame and GameMap then
-        local ItemsESPOn = ESPEnabled and GetValue("ItemsESP")
-        local ItemsColor = ColorPresets[GetValue("ItemsColor")] or ColorPresets.Gold
-        local GeneratorsESPOn = ESPEnabled and GetValue("GeneratorsESP")
-        local GeneratorsColor = ColorPresets[GetValue("GeneratorsColor")] or ColorPresets.Cyan
-        local GeneratorsCheckOn = GetValue("GeneratorsCheck")
-
-        -- Items / AutoPickup
-        if ItemsESPOn or AutoPickupEnabled then
+        task.spawn(function()
             local Tools = InGame:QueryDescendants("#Map > Tool")
             local DroppedTools = InGame.Parent:QueryDescendants("Folder > Tool")
             for i,v in table.move(Tools,1,#Tools,#DroppedTools+1,DroppedTools) do
-                local TargetRoot = v:FindFirstChildWhichIsA("BasePart")
-                if ItemsESPOn then
-                    CreateDynamicHighlight(true, v, TargetRoot, {MaxDistance = 100,MinDistance = 12,Color = ItemsColor})
-                    if ShowTextEnabled then
-                        CreateText(true, v, TargetRoot, {MinDistance = 25,Text = v.Name, Color = ItemsColor})
-                    else
-                        CreateText(false, v)
-                    end
-                else
-                    CreateDynamicHighlight(false, v)
-                    CreateText(false, v)
-                end
-                if AutoPickupEnabled and LocalRoot and LocalCharacter and v:IsA("Tool") and not LocalCharacter:FindFirstChild(v.Name) then
-                    local Backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
-                    if Backpack and not Backpack:FindFirstChild(v.Name) and not v:GetAttribute("JustDropped") then
-                        local Param = OverlapParams.new()
-                        Param.FilterType = Enum.RaycastFilterType.Include
-                        Param.FilterDescendantsInstances = {v}
-                        local Result = workspace:GetPartBoundsInRadius(LocalRoot.Position, 4.5, Param)
-                        if #Result > 0 then
-                            fireprompt(v:FindFirstChildWhichIsA("ProximityPrompt",true))
-                        end
+                local FeatureValue, ColorValue, TargetRoot = GetValue("ItemsESP"), ColorPresets[GetValue("ItemsColor")], v:FindFirstChildWhichIsA("BasePart")
+                CreateDynamicHighlight(FeatureValue, v, TargetRoot, {MaxDistance = 100,MinDistance = 12,Color = ColorValue})
+                CreateText(FeatureValue, v, TargetRoot, {MinDistance = 25,Text = v.Name, Color = ColorValue})
+                if v:IsA("Tool") and not LocalCharacter:FindFirstChild(v.Name) and not LocalPlayer:FindFirstChildOfClass("Backpack"):FindFirstChild(v.Name) and not v:GetAttribute("JustDropped") and GetValue("AutoPickup") then
+                    local Param = OverlapParams.new()
+                    Param.FilterType = Enum.RaycastFilterType.Include
+                    Param.FilterDescendantsInstances = {v}
+                    local Result = workspace:GetPartBoundsInRadius(LocalRoot.Position, 4.5, Param)
+                    if LocalRoot and #Result > 0 then
+                        fireprompt(v:FindFirstChildWhichIsA("ProximityPrompt",true))
                     end
                 end
             end
-        end
-
-        -- Generators ESP only when needed
-        if GeneratorsESPOn then
-            for i,v in GameMap:QueryDescendants("Model#Generator:has(#Main)") do
-                local Progress = v:FindFirstChild("Progress")
-                if GeneratorsCheckOn and Progress and Progress.Value >= 100 then
+        end)
+        for i,v in GameMap:QueryDescendants("Model#Generator:has(#Main)") do
+            task.spawn(function()
+                if (GetValue("GeneratorsCheck")) == true and v:FindFirstChild("Progress") and v:FindFirstChild("Progress").Value >= 100 then
                     CreateDynamicHighlight(false, v)
                     CreateText(false, v)
-                elseif Progress then
-                    local TargetRoot = v:FindFirstChild("Main")
-                    if TargetRoot then
-                        CreateDynamicHighlight(true, v, TargetRoot, { MaxDistance = 100,MinDistance = 12,Color = GeneratorsColor})
-                        if ShowTextEnabled then
-                            CreateText(true, v, TargetRoot, { MinDistance = 25,Text = v.Name,Color = GeneratorsColor})
-                        else
-                            CreateText(false, v)
-                        end
-                    end
+                elseif v:FindFirstChild("Progress") then
+                    local FeatureValue, ColorValue, TargetRoot = GetValue("GeneratorsESP"), ColorPresets[GetValue("GeneratorsColor")], v:FindFirstChild("Main") or v:WaitForChild("Main")
+                    CreateDynamicHighlight(FeatureValue, v, TargetRoot, { MaxDistance = 100,MinDistance = 12,Color = ColorValue})
+                    CreateText(FeatureValue, v, TargetRoot, { MinDistance = 25,Text = v.Name,Color = ColorValue})
                 end
-            end
+            end)
         end
     end
-end,0.15)
+end,0.1)
 
 local LoadUI = Instance.new("TextButton")
 local Folder = Instance.new("Folder")
@@ -3351,6 +3306,108 @@ TextButton.TextColor3 = Color3.new(1, 1, 1)
 TextButton.TextSize = 20
 TextButton.TextScaled = true
 TextButton.TextStrokeTransparency = 0.9
+
+-- Floating Auto Block toggle (can be clicked during a match)
+do
+    local AutoBlockToggleGui = Instance.new("ScreenGui")
+    AutoBlockToggleGui.Name = "AutoBlockFloatingToggle"
+    AutoBlockToggleGui.ResetOnSpawn = false
+    AutoBlockToggleGui.IgnoreGuiInset = true
+    AutoBlockToggleGui.Parent = CoreGui
+
+    local AutoBlockToggle = Instance.new("TextButton")
+    AutoBlockToggle.Name = "Toggle"
+    AutoBlockToggle.Parent = AutoBlockToggleGui
+    AutoBlockToggle.Size = UDim2.new(0, 150, 0, 48)
+    AutoBlockToggle.Position = UDim2.new(1, -170, 0.5, -24)
+    AutoBlockToggle.BackgroundTransparency = 0.15
+    AutoBlockToggle.BorderSizePixel = 0
+    AutoBlockToggle.TextColor3 = Color3.new(1, 1, 1)
+    AutoBlockToggle.TextScaled = true
+    AutoBlockToggle.Font = Enum.Font.GothamBold
+    AutoBlockToggle.ZIndex = 100
+    AutoBlockToggle.Active = true
+    AutoBlockToggle.Selectable = true
+
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0, 10)
+    Corner.Parent = AutoBlockToggle
+
+    local Stroke = Instance.new("UIStroke")
+    Stroke.Thickness = 2
+    Stroke.Parent = AutoBlockToggle
+
+    local AutoBlockValue = GetValue("AutoBlock", true)
+    local function UpdateAutoBlockToggle()
+        local Enabled = AutoBlockValue and AutoBlockValue.Value or false
+        AutoBlockToggle.Text = Enabled and "Auto Block: ON" or "Auto Block: OFF"
+        AutoBlockToggle.BackgroundColor3 = Enabled and Color3.fromRGB(0, 170, 85) or Color3.fromRGB(45, 45, 45)
+    end
+
+    AutoBlockToggle.MouseButton1Click:Connect(function()
+        if AutoBlockValue then
+            AutoBlockValue.Value = not AutoBlockValue.Value
+            UpdateAutoBlockToggle()
+        end
+    end)
+
+    if AutoBlockValue then
+        AutoBlockValue:GetPropertyChangedSignal("Value"):Connect(UpdateAutoBlockToggle)
+    end
+    UpdateAutoBlockToggle()
+
+    -- Drag ONLY from the left/right side handles.
+    -- The center of the button remains click-only, which prevents
+    -- two-finger touches from fighting over the toggle.
+    local Dragging = false
+    local DragStart
+    local StartPosition
+
+    local function MakeDragHandle(Name, XPosition)
+        local Handle = Instance.new("Frame")
+        Handle.Name = Name
+        Handle.Parent = AutoBlockToggle
+        Handle.Size = UDim2.new(0, 28, 1, 0)
+        Handle.Position = UDim2.new(XPosition, 0, 0, 0)
+        Handle.BackgroundTransparency = 1
+        Handle.BorderSizePixel = 0
+        Handle.Active = true
+        Handle.ZIndex = 101
+
+        Handle.InputBegan:Connect(function(Input)
+            if Input.UserInputType == Enum.UserInputType.MouseButton1
+                or Input.UserInputType == Enum.UserInputType.Touch then
+
+                Dragging = true
+                DragStart = Input.Position
+                StartPosition = AutoBlockToggle.Position
+
+                Input.Changed:Connect(function()
+                    if Input.UserInputState == Enum.UserInputState.End then
+                        Dragging = false
+                    end
+                end)
+            end
+        end)
+
+        return Handle
+    end
+
+    MakeDragHandle("LeftDragHandle", 0)
+    MakeDragHandle("RightDragHandle", 1)
+
+    UserInputService.InputChanged:Connect(function(Input)
+        if Dragging and (Input.UserInputType == Enum.UserInputType.MouseMovement
+            or Input.UserInputType == Enum.UserInputType.Touch) then
+
+            local Delta = Input.Position - DragStart
+            AutoBlockToggle.Position = UDim2.new(
+                StartPosition.X.Scale, StartPosition.X.Offset + Delta.X,
+                StartPosition.Y.Scale, StartPosition.Y.Offset + Delta.Y
+            )
+        end
+    end)
+end
 
 PlayerGui.ChildAdded:Connect(function(Child)
     if Child.Name == "PuzzleUI" then
